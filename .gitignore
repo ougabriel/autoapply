@@ -1,0 +1,23 @@
+# local data, secrets, registers
+data/*.db
+data/*.sqlite3
+data/uk_sponsors.csv
+data/.applied_companies.txt
+secrets.local.json
+*.docx
+*.pdf
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# playwright
+.playwright-mcp/
+playwright-report/
+test-results/
+
+# os / editor
+.DS_Store
+Thumbs.db

@@ -1,0 +1,96 @@
+{
+  "candidate": "Racheal Okom",
+  "firstName": "Racheal",
+  "lastName": "Okom",
+  "email": "rachealnkgolden@gmail.com",
+  "phone": "07350 166329",
+  "phoneIntl": "+447350166329",
+  "address": {
+    "line1": "Middle Park Avenue",
+    "city": "London",
+    "postcode": "SE9 5QW",
+    "country": "United Kingdom"
+  },
+  "nationality": "Nigerian",
+  "sector": "Health & Social Care",
+  "visa": {
+    "currentStatus": "Student visa (MSc Marketing, York St John University, expected Dec 2026)",
+    "authorisedToWorkUK": true,
+    "needsSponsorship": true,
+    "routeSought": "Health and Care Worker visa (Skilled Worker sub-route)",
+    "inCountrySwitch": true,
+    "eligibleSOC": [
+      "6135 Care workers and home carers",
+      "6136 Senior care workers",
+      "6131 Nursing auxiliaries and assistants"
+    ],
+    "statement": "Currently in the UK on a Student visa and seeking a Health and Care Worker visa sponsorship to continue working in health and social care."
+  },
+  "cvLanes": {
+    "hca": "cv_hca.pdf - Health Care Assistant / Nursing Assistant / Ward Assistant",
+    "care_assistant": "cv_care_assistant.pdf - Care Assistant / Care Worker / Carer / Residential",
+    "support_worker": "cv_support_worker.pdf - Support Worker / Supported Living / Community Support",
+    "mh_support": "cv_mh_support.pdf - Mental Health Support Worker / Recovery Worker / Wellbeing",
+    "home_care": "cv_home_care.pdf - Home Care Worker / Domiciliary Care Worker / Visiting Carer"
+  },
+  "cvRouting": [
+    { "match": "(?i)mental health|recovery worker|wellbeing|MH support|psychiatric", "lane": "mh_support" },
+    { "match": "(?i)support worker|supported living|community support|enabler", "lane": "support_worker" },
+    { "match": "(?i)home care|domiciliary|visiting care|care at home|live[- ]in", "lane": "home_care" },
+    { "match": "(?i)care assistant|care worker|carer|residential", "lane": "care_assistant" },
+    { "match": "(?i)health ?care assistant|HCA|nursing assistant|nursing auxiliary|ward", "lane": "hca" },
+    { "match": "(?i).*", "lane": "hca" }
+  ],
+  "skillsTruth": {
+    "has": [
+      "Care Certificate (all 15 standards)",
+      "Enhanced DBS (current)",
+      "Person-centred personal care (washing, dressing, toileting, continence)",
+      "Dementia care and reassurance",
+      "Mental health awareness and emotional support",
+      "Behaviours that challenge and de-escalation",
+      "Safe moving and handling (hoists, slide sheets)",
+      "Observations, food and fluid charts, record keeping",
+      "Nutrition and hydration support",
+      "Infection prevention and control",
+      "Safeguarding adults",
+      "Teamwork in a multidisciplinary team"
+    ],
+    "trainingCertificates": [
+      "Care Certificate (15 standards)",
+      "Enhanced DBS (current)",
+      "Dementia Awareness (NHS / MindEd)",
+      "Safeguarding Adults (NHS / MindEd)",
+      "Infection Prevention and Control",
+      "Moving and Handling",
+      "Mental Health Awareness",
+      "Behaviours That Challenge",
+      "Epilepsy Awareness",
+      "Health and Safety"
+    ],
+    "doesNotYetHave": [
+      "NVQ / Diploma in Health and Social Care",
+      "Driving licence / own car",
+      "UK nursing or clinical registration"
+    ],
+    "rule": "Never claim a qualification she does not hold. She DOES hold the Care Certificate and a current enhanced DBS. Entry HCA/care roles that say 'no experience necessary / full training' remain strong fits."
+  },
+  "honesty": {
+    "rightToWork": "Currently authorised to work in the UK on a Student visa (with student work-hour limits). Requires Health and Care Worker visa sponsorship for full-time ongoing employment.",
+    "doNotFabricate": "Do not invent employers, dates, qualifications or achievements. Achievements are honest descriptions of real duties with honest scope, never invented metrics.",
+    "coverLetterRule": "Cover letters and supporting statements = fit for the role + genuine interest + compassion ONLY. No visa/sponsorship/CoS/salary/notice. (L13)",
+    "voiceRule": "Human voice. No em-dashes. No AI-tell words. Plain, warm, specific."
+  },
+  "cadence": {
+    "dailyTarget": 10,
+    "perCompany90Day": "One CV lane per company per 90 days; never two CVs to the same employer (L7).",
+    "preferDirectEmployers": "Prefer CQC-registered care providers and NHS trusts over generic staffing agencies."
+  },
+  "doNotApply": [
+    "Roles that explicitly state no visa sponsorship or must already have unrestricted right to work",
+    "Generic recruitment agencies that are not the sponsoring employer unless they are a CQC-registered care provider acting as direct employer",
+    "Roles requiring a UK nursing or clinical registration she does not hold (RGN/RMN)",
+    "Roles requiring a driving licence or own car if she cannot meet it, mainly domiciliary",
+    "Senior or registered-manager roles requiring NVQ Level 3 or 5 she does not hold"
+  ]
+}
