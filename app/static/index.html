@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>jobapply-AI</title>
+<title>jobapply-AI - run console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Epilogue:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -15,7 +15,7 @@
   <header class="masthead">
     <div class="brand">
       <h1>jobapply-AI</h1>
-      <p class="tagline">Source, filter, route, tailor, submit. On your machine, with your data.</p>
+      <p class="tagline">Autonomous application loop. Runs on your machine, with your data.</p>
     </div>
     <div class="profile-pick">
       <label for="candidate">Candidate</label>
@@ -25,64 +25,38 @@
   </header>
 
   <main>
-    <section class="panel" id="profile-panel">
-      <h2>Profile</h2>
-      <div id="profile-summary" class="profile-summary">Select a candidate to load their profile.</div>
-      <div class="lanes" id="lanes"></div>
+    <section class="panel" id="status-panel">
+      <h2>Loop status</h2>
+      <div class="status-grid">
+        <div class="seal" id="seal"><span id="seal-label">idle</span></div>
+        <div class="status-readout" id="status-readout"></div>
+      </div>
+      <div class="controls">
+        <button id="btn-start" class="primary">Start batch</button>
+        <button id="btn-pause" class="ghost">Pause</button>
+        <button id="btn-resume" class="ghost">Resume</button>
+        <button id="btn-refresh" class="ghost">Refresh</button>
+      </div>
+      <p class="panel-note" id="control-note"></p>
     </section>
 
-    <section class="panel" id="evaluate-panel">
-      <h2>Evaluate a vacancy</h2>
-      <p class="panel-note">Runs the full pipeline (sponsor match, filters, CV routing, tailoring, integrity gate). Submits nothing.</p>
-      <form id="evaluate-form">
-        <div class="field">
-          <label for="company">Employer</label>
-          <input id="company" name="company" placeholder="e.g. Barchester Healthcare" required />
-        </div>
-        <div class="field">
-          <label for="title">Job title</label>
-          <input id="title" name="title" placeholder="e.g. Health Care Assistant" required />
-        </div>
-        <div class="field">
-          <label for="url">Job URL</label>
-          <input id="url" name="url" placeholder="https://..." required />
-        </div>
-        <div class="field field-wide">
-          <label for="description">Job description / person spec</label>
-          <textarea id="description" name="description" rows="6" placeholder="Paste the essential criteria here."></textarea>
-        </div>
-        <button type="submit" class="primary">Evaluate</button>
-      </form>
+    <section class="panel" id="progress-panel">
+      <h2>Today</h2>
+      <div class="progress-meter">
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-label" id="progress-label">0 / 0</div>
+      </div>
+      <div class="counts" id="counts"></div>
     </section>
 
-    <section class="panel verdict-panel" id="verdict-panel" hidden>
-      <h2>Verdict</h2>
-      <div class="verdict-head">
-        <div class="seal" id="seal">
-          <span id="seal-label">checking</span>
-        </div>
-        <div class="verdict-meta" id="verdict-meta"></div>
-      </div>
-      <div class="verdict-body">
-        <div class="letter-block">
-          <h3>Cover letter</h3>
-          <pre id="letter"></pre>
-        </div>
-        <div class="checks-block">
-          <h3>Integrity checks</h3>
-          <ul id="violations" class="checklist violations"></ul>
-          <ul id="warnings" class="checklist warnings"></ul>
-        </div>
-      </div>
-      <div class="verdict-actions" id="verdict-actions" hidden>
-        <button id="record-submitted" class="primary">Record as Submitted</button>
-        <button id="record-skipped" class="ghost">Record as Skipped-blocked</button>
-      </div>
+    <section class="panel feed-panel" id="feed-panel">
+      <h2>Live activity</h2>
+      <p class="panel-note">Every source, filter, route, integrity check, and submission as it happens.</p>
+      <ul class="feed" id="feed"></ul>
     </section>
 
     <section class="panel" id="tracker-panel">
       <h2>Application tracker</h2>
-      <div class="counts" id="counts"></div>
       <table class="tracker">
         <thead>
           <tr><th>Company</th><th>Title</th><th>Lane</th><th>Status</th><th>When</th></tr>

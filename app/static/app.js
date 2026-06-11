@@ -1,16 +1,21 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-let currentProfile = null;
-let lastEvaluation = null;
+let candidate = null;
+let evtSource = null;
 
 async function api(path, options) {
   const res = await fetch(path, options);
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`${res.status}: ${detail}`);
-  }
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
   return res.json();
+}
+
+function post(path, body) {
+  return api(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 async function loadProfiles() {
@@ -33,157 +38,107 @@ async function loadProfiles() {
     state.className = "register-state missing";
   }
 
-  if (data.profiles.length) {
-    await selectProfile(data.profiles[0]);
-  }
+  if (data.profiles.length) selectCandidate(data.profiles[0]);
 }
 
-async function selectProfile(name) {
+function selectCandidate(name) {
+  candidate = name;
   $("candidate").value = name;
-  currentProfile = await api(`/api/profiles/${encodeURIComponent(name)}`);
-  renderProfile();
-  await loadTracker();
+  $("feed").innerHTML = "";
+  refreshStatus();
+  loadTracker();
+  openStream();
 }
 
-function renderProfile() {
-  const p = currentProfile;
-  $("profile-summary").innerHTML =
-    `<strong>${p.candidate}</strong> · ${p.sector}<br/>` +
-    `${p.address.city} ${p.address.postcode} · ${p.email}<br/>` +
-    `Visa route sought: ${p.visa.routeSought}`;
+const SEAL_STATE = {
+  running: { cls: "seal ok", label: "running" },
+  queued: { cls: "seal checking", label: "queued" },
+  paused: { cls: "seal block", label: "paused" },
+  idle: { cls: "seal", label: "idle" },
+};
 
-  const lanes = $("lanes");
-  lanes.innerHTML = "";
-  Object.keys(p.cvLanes || {}).forEach((lane) => {
-    const chip = document.createElement("span");
-    chip.className = "lane-chip";
-    chip.textContent = lane;
-    lanes.appendChild(chip);
-  });
-}
-
-async function evaluate(event) {
-  event.preventDefault();
-  if (!currentProfile) return;
+async function refreshStatus() {
+  if (!candidate) return;
+  const s = await api(`/api/runs/status?candidate=${encodeURIComponent(candidate)}`);
 
   const seal = $("seal");
-  $("verdict-panel").hidden = false;
-  seal.className = "seal checking";
-  $("seal-label").textContent = "checking";
-  $("verdict-actions").hidden = true;
+  const view = SEAL_STATE[s.loop_state] || SEAL_STATE.idle;
+  seal.className = view.cls;
+  $("seal-label").textContent = view.label;
 
-  const payload = {
-    candidate: currentProfile.candidate.toLowerCase().includes(" ")
-      ? $("candidate").value
-      : $("candidate").value,
-    company: $("company").value.trim(),
-    title: $("title").value.trim(),
-    url: $("url").value.trim(),
-    description: $("description").value.trim(),
-  };
-  // The profile filename is the candidate key the API expects.
-  payload.candidate = $("candidate").value;
-
-  let result;
-  try {
-    result = await api("/api/jobs/evaluate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    seal.className = "seal block";
-    $("seal-label").textContent = "error";
-    $("verdict-meta").textContent = String(err.message);
-    return;
-  }
-
-  lastEvaluation = { ...result, _payload: payload };
-  renderVerdict(result);
-}
-
-function renderVerdict(r) {
-  const seal = $("seal");
-  const label = $("seal-label");
-
-  if (r.verdict === "Ready") {
-    seal.className = "seal ok";
-    label.textContent = "integrity\npassed";
-  } else if (r.verdict === "Skip") {
-    seal.className = "seal block";
-    label.textContent = "filtered\nout";
-  } else {
-    seal.className = "seal block";
-    label.textContent = "blocked";
-  }
-
-  const meta = $("verdict-meta");
   const rows = [
-    ["Verdict", r.verdict],
-    ["Sponsor matched", r.sponsor_matched ? "yes" : "no (treating JD wording as signal)"],
+    ["State", s.loop_state],
+    ["Batch", s.batch_id || "none"],
+    ["Lock age", s.lock_age_minutes == null ? "no lock" : `${s.lock_age_minutes} min${s.lock_stale ? " (stale)" : ""}`],
+    ["Queue depth", s.queue_depth],
+    ["Last source", s.last_source || "n/a"],
+    ["Sponsor row", s.last_sponsor_row],
   ];
-  if (r.filter_reason) rows.push(["Filter", r.filter_reason]);
-  if (r.lane) rows.push(["CV lane", `${r.lane} (${r.cv_file || "no file set"})`]);
-  if (r.matched_strengths) rows.push(["Matched strengths", r.matched_strengths.join(", ")]);
-  meta.innerHTML = rows
-    .map((x) => `<div class="row"><span class="key">${x[0]}</span>${x[1]}</div>`)
+  $("status-readout").innerHTML = rows
+    .map((r) => `<div class="row"><span class="key">${r[0]}</span><span>${r[1]}</span></div>`)
     .join("");
 
-  $("letter").textContent = r.letter || "(no letter - job was filtered out before tailoring)";
-
-  const vio = $("violations");
-  vio.innerHTML = "";
-  (r.integrity_violations || []).forEach((v) => {
-    const li = document.createElement("li");
-    li.textContent = v;
-    vio.appendChild(li);
-  });
-
-  const warn = $("warnings");
-  warn.innerHTML = "";
-  (r.integrity_warnings || []).forEach((w) => {
-    const li = document.createElement("li");
-    li.textContent = w;
-    warn.appendChild(li);
-  });
-
-  $("verdict-actions").hidden = r.verdict !== "Ready";
+  const pct = s.daily_cap ? Math.min(100, Math.round((s.today_count / s.daily_cap) * 100)) : 0;
+  $("progress-fill").style.width = pct + "%";
+  $("progress-label").textContent =
+    `${s.today_count} / ${s.daily_cap}` + (s.daily_cap_met ? " · cap met" : "");
 }
 
-async function recordOutcome(status) {
-  if (!lastEvaluation) return;
-  const p = lastEvaluation._payload;
+const KIND_META = {
+  source: ["src", "Sourced"],
+  filter: ["flt", "Filtered"],
+  route: ["rte", "Routed"],
+  integrity: ["int", "Integrity"],
+  submit: ["sub", "Submitted"],
+  skip: ["skp", "Skipped"],
+  needs_user: ["usr", "Needs you"],
+  batch: ["bch", "Batch"],
+  error: ["err", "Error"],
+  info: ["inf", "Info"],
+};
 
-  // Ensure the job exists, then record the application.
-  const job = await api("/api/jobs", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(p),
-  });
+function addFeedEvent(ev) {
+  const feed = $("feed");
+  const li = document.createElement("li");
+  li.className = `feed-item kind-${ev.kind}`;
+  const meta = KIND_META[ev.kind] || ["", ev.kind];
+  const time = (ev.ts || "").slice(11, 19);
+  li.innerHTML =
+    `<span class="feed-time">${time}</span>` +
+    `<span class="feed-tag tag-${ev.kind}">${meta[0]}</span>` +
+    `<span class="feed-msg">${escapeHtml(ev.message)}</span>`;
+  feed.prepend(li);
+  while (feed.childElementCount > 200) feed.removeChild(feed.lastChild);
 
-  await api("/api/applications", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      candidate: p.candidate,
-      job_id: job.job_id,
-      company: p.company,
-      title: p.title,
-      lane: lastEvaluation.lane || "default",
-      status,
-      ats: lastEvaluation.ats || null,
-      note: "",
-    }),
-  });
+  // A submission or batch-end is a good moment to refresh derived views.
+  if (ev.kind === "submit" || ev.kind === "batch") {
+    refreshStatus();
+    loadTracker();
+  }
+}
 
-  await loadTracker();
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
+  );
+}
+
+function openStream() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource(`/api/runs/stream?candidate=${encodeURIComponent(candidate)}`);
+  evtSource.onmessage = (e) => {
+    try {
+      addFeedEvent(JSON.parse(e.data));
+    } catch (_) {}
+  };
+  evtSource.onerror = () => {
+    // Browser auto-reconnects EventSource; nothing to do.
+  };
 }
 
 async function loadTracker() {
-  if (!currentProfile) return;
-  const data = await api(
-    `/api/applications?candidate=${encodeURIComponent($("candidate").value)}`
-  );
+  if (!candidate) return;
+  const data = await api(`/api/applications?candidate=${encodeURIComponent(candidate)}`);
 
   const counts = $("counts");
   counts.innerHTML = "";
@@ -196,22 +151,42 @@ async function loadTracker() {
 
   const body = $("tracker-body");
   body.innerHTML = "";
-  data.applications.forEach((a) => {
+  data.applications.slice(0, 50).forEach((a) => {
     const tr = document.createElement("tr");
     const when = (a.created_at || "").slice(0, 10);
     tr.innerHTML =
-      `<td>${a.company}</td><td>${a.title}</td><td>${a.lane}</td>` +
-      `<td><span class="status-tag status-${a.status}">${a.status}</span></td>` +
-      `<td>${when}</td>`;
+      `<td>${escapeHtml(a.company)}</td><td>${escapeHtml(a.title)}</td><td>${a.lane}</td>` +
+      `<td><span class="status-tag status-${a.status}">${a.status}</span></td><td>${when}</td>`;
     body.appendChild(tr);
   });
 }
 
-$("candidate").addEventListener("change", (e) => selectProfile(e.target.value));
-$("evaluate-form").addEventListener("submit", evaluate);
-$("record-submitted").addEventListener("click", () => recordOutcome("Submitted"));
-$("record-skipped").addEventListener("click", () => recordOutcome("Skipped-blocked"));
+async function control(action) {
+  const note = $("control-note");
+  try {
+    let r;
+    if (action === "start") r = await post("/api/runs/start", { candidate });
+    else if (action === "pause") r = await post("/api/runs/pause", { candidate });
+    else if (action === "resume") r = await post("/api/runs/resume", { candidate });
+    if (action === "start" || action === "resume") {
+      note.textContent = r.started
+        ? `Batch ${r.batch_id} claimed. Run the agent worker to drain it.`
+        : `Not started: ${r.reason}`;
+    } else {
+      note.textContent = "Pause requested. The current batch stops at its next checkpoint.";
+    }
+  } catch (err) {
+    note.textContent = "Error: " + err.message;
+  }
+  refreshStatus();
+}
+
+$("candidate").addEventListener("change", (e) => selectCandidate(e.target.value));
+$("btn-start").addEventListener("click", () => control("start"));
+$("btn-pause").addEventListener("click", () => control("pause"));
+$("btn-resume").addEventListener("click", () => control("resume"));
+$("btn-refresh").addEventListener("click", () => { refreshStatus(); loadTracker(); });
 
 loadProfiles().catch((err) => {
-  $("profile-summary").textContent = "Failed to load: " + err.message;
+  $("status-readout").textContent = "Failed to load: " + err.message;
 });

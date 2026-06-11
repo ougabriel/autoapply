@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config, db
-from .routers import applications, jobs, profiles
+from .routers import applications, jobs, profiles, runs
 
 app = FastAPI(
     title="jobapply-AI",
@@ -23,6 +23,7 @@ app = FastAPI(
 app.include_router(profiles.router)
 app.include_router(jobs.router)
 app.include_router(applications.router)
+app.include_router(runs.router)
 
 
 @app.get("/api/health")

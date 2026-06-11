@@ -57,6 +57,35 @@ jobapply-AI/
 └── data/                    # sqlite db, sponsor register (gitignored)
 ```
 
+### Autonomy model (DECIDED: Option B - agent-orchestrated)
+The WAT (esp. Stage 6b/6c/7) describes a stateful, scheduled, queue-and-continue
+autonomous loop where an LLM agent + Playwright is the BRAIN at runtime, not coded
+automation. We build the app as the orchestration + control + visibility surface;
+an agent worker (separate session/process) does sourcing + browser submission.
+
+- **State contract (per candidate, mirrors WAT Stage 6b):** lock, queue, cursor,
+  stop_signal, pending_batches, logs - implemented in `services/run_state.py`.
+- **Orchestrator** (`services/orchestrator.py`): batch lifecycle, queue-and-continue,
+  soft daily cap, stop-first/lock-second contract.
+- **Event stream** (`services/event_log.py`): structured live events for the UI feed (SSE).
+- **Agent-worker API** (`routers/runs.py`): the worker polls for the next task,
+  reports events + outcomes, and checks the stop/pause control at each iteration.
+- **Human controls:** start / pause (writes stop signal) / stop / resume / daily cap.
+- **Live view the user sees while running:** loop status (running/queued/paused),
+  current batch id, lock age, queue depth, submitted-today vs target, current job
+  (company/title/ATS/lane), streaming activity log, per-application honest outcomes
+  (Submitted/Skipped-blocked/NeedsUserAction), integrity-gate blocks.
+- A reference worker (`worker/agent_worker.py`) shows the loop a real agent drives;
+  the agent uses Playwright via the existing `fill_*` recipes behind the integrity gate.
+- Optional later: harden highest-yield ATSes (Greenhouse/Workable/NHS-TRAC) into
+  deterministic coded adapters where stable.
+
+### User inputs needed to launch an autonomous run
+- Active candidate + daily target / per-batch size / cadence (from profile; surfaced as run config).
+- Sources enabled this run (LinkedIn EA, sponsor-register walk from cursor row, direct boards, NHS-TRAC) + keyword rotation.
+- Logged-in persistent Playwright browser session (one-time LinkedIn / NHS sign-in) - the real human prerequisite.
+- Secrets (reusable ATS password for Workday/iCIMS resets) from a local gitignored store.
+
 ### Submission model
 - Personal use: keep the local logged-in Playwright/Edge browser (works today).
 - Adapter interface per ATS; honest status per application: Submitted / Skipped-blocked / NeedsUserAction.

@@ -3,6 +3,7 @@ data/*.db
 data/*.sqlite3
 data/uk_sponsors.csv
 data/.applied_companies.txt
+data/runs/
 secrets.local.json
 *.docx
 *.pdf
