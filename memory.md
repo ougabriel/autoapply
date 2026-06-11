@@ -57,6 +57,26 @@ jobapply-AI/
 └── data/                    # sqlite db, sponsor register (gitignored)
 ```
 
+### Keyless model providers (NO API KEY needed) - default is local
+User does NOT want to use an API key. The app cannot literally "call Kiro" (it's a
+standalone server; Kiro is an interactive IDE agent, no network endpoint for a
+background process). So two keyless paths were added, default = local:
+- `local`: model on the machine via Ollama (http://localhost:11434). No key, no
+  cost, works unattended. `llm._call_local` posts to /api/generate. is_active()
+  checks /api/tags reachable. Install: ollama.com then `ollama pull llama3.1`.
+- `agent`: Kiro/Claude IS the model during a session. The agent calls
+  GET-equivalent llm.agent_prompt() to get system+user, writes the letter, POSTs it
+  to /api/runs/agent/letter; tailoring drains it per job_key. No key. Falls back to
+  template when no agent answer is waiting (loop never blocks).
+- `anthropic`/`openai`: still supported (key-based) if ever wanted.
+ALL providers: output still passes the integrity gate; failure -> retry -> template.
+- secrets.llm_api_key() returns None for local/agent; status() adds needs_key.
+- setup /llm accepts local|agent|anthropic|openai; /llm/test handles keyless (local
+  checks Ollama, agent explains itself); UI hides key field unless hosted provider,
+  adds a model field; default selection local.
+- new endpoint POST /api/runs/agent/letter (agent posts a generated letter).
+- Verified: agent path stores+gates+uses a letter; default local; suites green.
+
 ### FIX: Live mode hung on "running" with nothing submitted (root causes found)
 Symptom: click Start (live), status stuck "running", no submissions, no feedback.
 Root causes + fixes:

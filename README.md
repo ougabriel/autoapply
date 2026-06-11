@@ -48,13 +48,17 @@ python -m app.main
 
 ## Activating the model + going live
 
-The app works with NO model (honest template letters). To activate AI tailoring
-and run Live submissions, use the Setup panel in the UI (or the API):
+The app works with NO model (honest template letters), and the model needs NO API
+key by default. Use the Setup panel in the UI (or the API):
 
-1. **Activate the model.** Setup panel -> Model -> pick Anthropic or OpenAI, paste
-   your API key, click Activate (stored in `secrets.local.json`, gitignored). Click
-   Test to confirm the model is reachable and its output passes the integrity gate.
-   You can also just set `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` in the environment.
+1. **Choose a model provider** (Setup panel -> Model). No key needed:
+   - **Local (default):** runs a model on your machine via Ollama. Install Ollama
+     from ollama.com, then `ollama pull llama3.1`. The app calls localhost - no key,
+     no cost, works for unattended runs.
+   - **Agent:** a Kiro/Claude agent writes the letters during a session and posts
+     them to the app. No key. Falls back to the template when no agent is active.
+   - Anthropic / OpenAI are also available if you ever want a hosted key.
+   Click Test to confirm the model is reachable and its output passes the gate.
 2. **Sign in once.** Setup panel -> Logged-in browser -> Open sign-in window, log in
    to LinkedIn / NHS Jobs in the window that opens. The session persists for submissions.
 3. **CVs present.** Drop `cv_<lane>.pdf` files in `cv/`. Readiness turns green.
@@ -63,8 +67,8 @@ and run Live submissions, use the Setup panel in the UI (or the API):
    - Dry run: real fan-out sourcing + resolver, no submit - see what it would apply to.
    - Live: real Playwright submission in your logged-in browser.
 
-Whether the letter comes from the model or the template, it ALWAYS passes the
-integrity gate before anything is submitted.
+Whether the letter comes from a local model, an agent, or the template, it ALWAYS
+passes the integrity gate before anything is submitted.
 
 ## Honesty rules (non-negotiable - this is the strategy)
 

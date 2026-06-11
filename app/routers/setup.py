@@ -34,19 +34,20 @@ def setup_status() -> dict:
 # Model activation
 # --------------------------------------------------------------------------- #
 class LLMConfigIn(BaseModel):
-    provider: str = "anthropic"  # anthropic | openai
+    provider: str = "local"  # local | agent | anthropic | openai
     api_key: str | None = None
     model: str | None = None
 
 
 @router.post("/llm")
 def configure_llm(body: LLMConfigIn) -> dict:
-    if body.provider not in ("anthropic", "openai"):
-        raise HTTPException(status_code=400, detail="provider must be 'anthropic' or 'openai'")
+    valid = ("local", "agent", "anthropic", "openai")
+    if body.provider not in valid:
+        raise HTTPException(status_code=400, detail=f"provider must be one of {valid}")
     secrets.set_value("llm_provider", body.provider)
     if body.model:
         secrets.set_value("llm_model", body.model)
-    if body.api_key:
+    if body.api_key and body.provider in ("anthropic", "openai"):
         secrets.set_value(
             "anthropic_api_key" if body.provider == "anthropic" else "openai_api_key",
             body.api_key,
@@ -57,8 +58,16 @@ def configure_llm(body: LLMConfigIn) -> dict:
 @router.post("/llm/test")
 def test_llm() -> dict:
     """Generate a tiny sample letter to confirm the model is reachable + gate-clean."""
+    p = llm.provider()
+    if p == "agent":
+        return {"ok": True, "provider": "agent", "model": "kiro-agent",
+                "sample": "Agent provider: a Kiro/Claude agent writes letters during a run. "
+                          "No key needed. Falls back to the template when no agent is active."}
     if not llm.is_active():
-        return {"ok": False, "reason": "no API key configured"}
+        reason = ("Ollama not reachable on localhost:11434 - is it running? "
+                  "(install from ollama.com, then `ollama pull llama3.1`)") if p == "local" \
+            else "no API key configured"
+        return {"ok": False, "reason": reason}
     names = profiles_svc.list_profiles()
     if not names:
         return {"ok": False, "reason": "no profile to test with"}
@@ -68,7 +77,7 @@ def test_llm() -> dict:
         "Provide person-centred care and support.", profile.skillsTruth.has[:3],
     )
     if result is None:
-        return {"ok": False, "reason": "LLM not active"}
+        return {"ok": False, "reason": "provider produced nothing"}
     if result.text.startswith("__LLM_ERROR__"):
         return {"ok": False, "reason": result.text.replace("__LLM_ERROR__:", "")[:200]}
     if result.text == "__GATE_FAILED__":

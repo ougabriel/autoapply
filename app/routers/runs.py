@@ -183,6 +183,26 @@ def sourcing_provide_linkedin(body: LinkedInFindsIn) -> dict:
     return {"received": len(finds), "pending": pending}
 
 
+class AgentLetterIn(BaseModel):
+    candidate: str
+    company: str
+    title: str
+    letter: str
+
+
+@router.post("/agent/letter")
+def agent_letter(body: AgentLetterIn) -> dict:
+    """Agent (Kiro/Claude) posts a letter it wrote for a job (keyless model path).
+
+    When llm_provider == 'agent', tailoring picks this up for the matching job;
+    the integrity gate still validates it before any submission.
+    """
+    _profile_or_404(body.candidate)
+    from ..services import llm
+    key = llm.provide_agent_letter(body.candidate, body.company, body.title, body.letter)
+    return {"stored": True, "job_key": key}
+
+
 class EvaluateIn(BaseModel):
     candidate: str
     company: str

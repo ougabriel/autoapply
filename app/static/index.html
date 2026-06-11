@@ -31,13 +31,17 @@
 
       <div class="setup-block">
         <h3>Model</h3>
+        <p class="panel-note">No API key needed. Local runs a model on your machine (Ollama). Agent uses Kiro/Claude during a session. Letters always pass the integrity gate.</p>
         <div class="setup-row">
           <select id="llm-provider">
-            <option value="anthropic">Anthropic (Claude)</option>
-            <option value="openai">OpenAI (GPT)</option>
+            <option value="local">Local model (Ollama, no key)</option>
+            <option value="agent">Agent (Kiro/Claude, no key)</option>
+            <option value="anthropic">Anthropic (API key)</option>
+            <option value="openai">OpenAI (API key)</option>
           </select>
-          <input id="llm-key" type="password" placeholder="API key (stored locally, never committed)" />
-          <button id="btn-activate" class="primary">Activate</button>
+          <input id="llm-model" type="text" placeholder="model (e.g. llama3.1)" />
+          <input id="llm-key" type="password" placeholder="API key (only for Anthropic/OpenAI)" hidden />
+          <button id="btn-activate" class="primary">Save</button>
           <button id="btn-test-llm" class="ghost">Test</button>
         </div>
         <p class="setup-state" id="llm-state"></p>

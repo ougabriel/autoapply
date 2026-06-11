@@ -45,13 +45,13 @@ def set_value(key: str, value: str) -> None:
 
 
 def llm_api_key() -> str | None:
-    """The active LLM API key, by provider preference."""
-    provider = get("llm_provider") or "anthropic"
+    """The active LLM API key, by provider preference (keyless providers return None)."""
+    provider = get("llm_provider") or "local"
     if provider == "anthropic":
         return get("anthropic_api_key", env_fallback="ANTHROPIC_API_KEY")
     if provider == "openai":
         return get("openai_api_key", env_fallback="OPENAI_API_KEY")
-    return None
+    return None  # local / agent need no key
 
 
 def _mask(value: str | None) -> str | None:
@@ -64,10 +64,11 @@ def _mask(value: str | None) -> str | None:
 
 def status() -> dict:
     """Non-sensitive view for the UI: what's set, masked previews only."""
-    provider = get("llm_provider") or "anthropic"
+    provider = get("llm_provider") or "local"
     return {
         "llm_provider": provider,
         "llm_model": get("llm_model") or _default_model(provider),
+        "needs_key": provider in ("anthropic", "openai"),
         "anthropic_api_key_set": bool(get("anthropic_api_key", "ANTHROPIC_API_KEY")),
         "openai_api_key_set": bool(get("openai_api_key", "OPENAI_API_KEY")),
         "active_key_preview": _mask(llm_api_key()),
@@ -76,4 +77,9 @@ def status() -> dict:
 
 
 def _default_model(provider: str) -> str:
-    return "claude-3-5-sonnet-20241022" if provider == "anthropic" else "gpt-4o"
+    return {
+        "local": "llama3.1",
+        "agent": "kiro-agent",
+        "anthropic": "claude-3-5-sonnet-20241022",
+        "openai": "gpt-4o",
+    }.get(provider, "llama3.1")

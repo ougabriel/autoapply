@@ -52,13 +52,27 @@ function selectCandidate(name) {
 }
 
 // ---- setup / activation ----
+function syncProviderFields() {
+  const p = $("llm-provider").value;
+  const needsKey = p === "anthropic" || p === "openai";
+  $("llm-key").hidden = !needsKey;
+  const modelPlaceholders = { local: "llama3.1", agent: "kiro-agent",
+    anthropic: "claude-3-5-sonnet-20241022", openai: "gpt-4o" };
+  $("llm-model").placeholder = "model (e.g. " + (modelPlaceholders[p] || "") + ")";
+}
+
 async function loadSetup() {
   try {
     const s = await api("/api/setup/status");
     $("llm-provider").value = s.llm.llm_provider;
-    $("llm-state").textContent = s.llm.active
-      ? `Active: ${s.llm.llm_provider} / ${s.llm.llm_model} (key ${s.llm.active_key_preview})`
-      : "Not activated. Letters use the honest template until you add a key.";
+    syncProviderFields();
+    const active = s.llm.active ?? false;
+    $("llm-state").textContent = active
+      ? `Active: ${s.llm.llm_provider} / ${s.llm.llm_model}` +
+        (s.llm.needs_key ? ` (key ${s.llm.active_key_preview})` : " (no key needed)")
+      : (s.llm.llm_provider === "local"
+          ? "Local provider selected but Ollama is not running. Start Ollama or it falls back to the template."
+          : "Not active. Letters use the honest template until the model is ready.");
     $("browser-state").textContent = s.browser_profile_exists
       ? `Browser profile ready at ${s.browser_profile_dir}`
       : "No browser profile yet. Open the sign-in window once to create it.";
@@ -97,13 +111,22 @@ async function loadReadiness() {
 async function activateLLM() {
   const provider = $("llm-provider").value;
   const api_key = $("llm-key").value.trim();
-  $("llm-state").textContent = "Activating...";
+  const model = $("llm-model").value.trim();
+  $("llm-state").textContent = "Saving...";
   try {
-    const r = await post("/api/setup/llm", { provider, api_key: api_key || null });
+    const r = await post("/api/setup/llm", {
+      provider,
+      api_key: api_key || null,
+      model: model || null,
+    });
     $("llm-key").value = "";
-    $("llm-state").textContent = r.llm.active
-      ? `Active: ${r.llm.llm_provider} / ${r.llm.llm_model} (key ${r.llm.active_key_preview})`
-      : "Saved, but no key detected yet.";
+    const active = r.llm.active ?? false;
+    $("llm-state").textContent = active
+      ? `Active: ${r.llm.llm_provider} / ${r.llm.llm_model}` +
+        (r.llm.needs_key ? ` (key ${r.llm.active_key_preview})` : " (no key needed)")
+      : "Saved. " + (provider === "local"
+          ? "Start Ollama to use it, or it falls back to the template."
+          : "Model not ready yet.");
     loadReadiness();
   } catch (err) {
     $("llm-state").textContent = "Error: " + err.message;
@@ -278,6 +301,7 @@ $("btn-refresh").addEventListener("click", () => { refreshStatus(); loadTracker(
 $("btn-activate").addEventListener("click", activateLLM);
 $("btn-test-llm").addEventListener("click", testLLM);
 $("btn-login").addEventListener("click", openLogin);
+$("llm-provider").addEventListener("change", syncProviderFields);
 
 loadSetup();
 loadProfiles().catch((err) => {
