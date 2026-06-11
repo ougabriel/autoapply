@@ -26,8 +26,10 @@ KIND_NEEDS_USER = "needs_user"
 KIND_BATCH = "batch"
 KIND_ERROR = "error"
 
-# In-process subscribers: candidate -> set of asyncio.Queue
-_subscribers: dict[str, set[asyncio.Queue]] = {}
+# In-process subscribers: candidate -> set of (queue, loop). The loop is captured
+# at subscribe time so a batch running in a BACKGROUND THREAD can deliver events
+# to the SSE generator (which lives on the asyncio event loop) thread-safely.
+_subscribers: dict[str, set[tuple[asyncio.Queue, "asyncio.AbstractEventLoop"]]] = {}
 
 
 def _iso() -> str:
@@ -39,7 +41,11 @@ def _log_path(candidate: str):
 
 
 def emit(candidate: str, kind: str, message: str, **fields: Any) -> dict:
-    """Record one event: append to JSONL and broadcast to live subscribers."""
+    """Record one event: append to JSONL and broadcast to live subscribers.
+
+    Safe to call from any thread: delivery to each subscriber is marshalled onto
+    that subscriber's event loop via call_soon_threadsafe.
+    """
     event = {"ts": _iso(), "candidate": candidate, "kind": kind, "message": message}
     if fields:
         event.update(fields)
@@ -47,12 +53,20 @@ def emit(candidate: str, kind: str, message: str, **fields: Any) -> dict:
     with _log_path(candidate).open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(event) + "\n")
 
-    for q in list(_subscribers.get(candidate, set())):
+    for q, loop in list(_subscribers.get(candidate, set())):
         try:
-            q.put_nowait(event)
-        except asyncio.QueueFull:
+            loop.call_soon_threadsafe(_safe_put, q, event)
+        except RuntimeError:
+            # Loop is closed/gone; drop this subscriber silently.
             pass
     return event
+
+
+def _safe_put(q: asyncio.Queue, event: dict) -> None:
+    try:
+        q.put_nowait(event)
+    except asyncio.QueueFull:
+        pass
 
 
 def tail(candidate: str, limit: int = 200) -> list[dict]:
@@ -74,11 +88,15 @@ def tail(candidate: str, limit: int = 200) -> list[dict]:
 
 def subscribe(candidate: str) -> asyncio.Queue:
     q: asyncio.Queue = asyncio.Queue(maxsize=1000)
-    _subscribers.setdefault(candidate, set()).add(q)
+    loop = asyncio.get_event_loop()
+    _subscribers.setdefault(candidate, set()).add((q, loop))
     return q
 
 
 def unsubscribe(candidate: str, q: asyncio.Queue) -> None:
     subs = _subscribers.get(candidate)
-    if subs and q in subs:
-        subs.remove(q)
+    if not subs:
+        return
+    for pair in list(subs):
+        if pair[0] is q:
+            subs.discard(pair)

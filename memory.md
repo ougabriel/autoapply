@@ -57,6 +57,20 @@ jobapply-AI/
 └── data/                    # sqlite db, sponsor register (gitignored)
 ```
 
+### FIX: Start button now actually runs a batch (was: only set the lock)
+Problem: clicking Start only called orchestrator.start_batch (acquired the lock,
+returned) so the UI showed "running" but nothing drained it - the worker was a
+separate process the UI never launched.
+Fix:
+- `services/runner.py`: launches run_batch on a daemon THREAD; modes demo |
+  dryrun | live. HTTP returns immediately; loop drains in background + emits events.
+- `/api/runs/start` now takes `mode` (+ optional cv_dir) and calls the runner;
+  clears a stale lock first so Start is never silently swallowed.
+- `event_log.emit` made THREAD-SAFE: subscribers store (queue, loop); delivery via
+  loop.call_soon_threadsafe so a background-thread batch reaches the SSE feed.
+- UI: mode selector added; Start sends mode; feed updates live (verified SSE push).
+- Verified end-to-end: Start(demo) -> sourced 2 -> submitted 2 -> finished, today_count 2/10.
+
 ### Careers-page resolver + Greenhouse submitter (BUILT)
 - `app/sourcing/resolver.py`: turns sponsor-walk LEADS (company name only) into
   real applyable vacancies by deterministically probing public Greenhouse/Workable

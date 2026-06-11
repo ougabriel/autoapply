@@ -32,6 +32,12 @@
         <div class="status-readout" id="status-readout"></div>
       </div>
       <div class="controls">
+        <label for="mode" class="mode-label">Mode</label>
+        <select id="mode">
+          <option value="demo">Demo (no browser)</option>
+          <option value="dryrun">Dry run (real sourcing, no submit)</option>
+          <option value="live">Live (real browser submit)</option>
+        </select>
         <button id="btn-start" class="primary">Start batch</button>
         <button id="btn-pause" class="ghost">Pause</button>
         <button id="btn-resume" class="ghost">Resume</button>

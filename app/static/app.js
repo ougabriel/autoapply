@@ -165,12 +165,15 @@ async function control(action) {
   const note = $("control-note");
   try {
     let r;
-    if (action === "start") r = await post("/api/runs/start", { candidate });
-    else if (action === "pause") r = await post("/api/runs/pause", { candidate });
+    if (action === "start") {
+      const mode = $("mode").value;
+      r = await post("/api/runs/start", { candidate, mode });
+    } else if (action === "pause") r = await post("/api/runs/pause", { candidate });
     else if (action === "resume") r = await post("/api/runs/resume", { candidate });
+
     if (action === "start" || action === "resume") {
       note.textContent = r.started
-        ? `Batch ${r.batch_id} claimed. Run the agent worker to drain it.`
+        ? `Batch launched (mode=${r.mode || "demo"}). Watch the live feed below.`
         : `Not started: ${r.reason}`;
     } else {
       note.textContent = "Pause requested. The current batch stops at its next checkpoint.";

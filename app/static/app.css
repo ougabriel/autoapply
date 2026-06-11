@@ -253,7 +253,9 @@ table.tracker td { padding: 10px 12px; border-bottom: 1px solid rgba(200, 184, 1
 .status-readout .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid rgba(200, 184, 154, 0.4); }
 .status-readout .key { color: var(--ink-soft); }
 
-.controls { display: flex; gap: 10px; flex-wrap: wrap; }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.mode-label { font-size: 13px; color: var(--ink-soft); }
+#mode { padding: 8px 12px; }
 
 .progress-meter { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
 .progress-bar { flex: 1; height: 14px; background: var(--sand); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }

@@ -24,6 +24,7 @@ from ..services import (
     orchestrator,
     profiles as profiles_svc,
     run_state,
+    runner,
     sponsor_match,
     tailoring,
 )
@@ -50,13 +51,18 @@ def status(candidate: str) -> dict:
 class StartIn(BaseModel):
     candidate: str
     source: str = "manual-start"
+    mode: str = "demo"  # demo | dryrun | live
+    cv_dir: str = "."
 
 
 @router.post("/start")
 def start(body: StartIn) -> dict:
     _profile_or_404(body.candidate)
-    result = orchestrator.start_batch(body.candidate, body.source)
-    return {"started": result.started, "reason": result.reason, "batch_id": result.batch_id}
+    # Clear a stale lock from a previously crashed/aborted batch so Start is not
+    # silently swallowed (the thread is gone but the lock file may remain).
+    if not runner.is_running(body.candidate) and run_state.lock_info(body.candidate):
+        run_state.release_lock(body.candidate)
+    return runner.start(body.candidate, mode=body.mode, cv_dir=body.cv_dir)
 
 
 class CandidateIn(BaseModel):
@@ -73,8 +79,10 @@ def pause(body: CandidateIn) -> dict:
 @router.post("/resume")
 def resume(body: CandidateIn) -> dict:
     _profile_or_404(body.candidate)
-    result = orchestrator.resume_from_pending(body.candidate)
-    return {"started": result.started, "reason": result.reason, "batch_id": result.batch_id}
+    run_state.clear_stop(body.candidate)
+    if not runner.is_running(body.candidate):
+        run_state.release_lock(body.candidate)
+    return runner.start(body.candidate, mode="demo")
 
 
 @router.get("/events")
