@@ -1,0 +1,100 @@
+{
+  "candidate": "Gabriel Okom",
+  "firstName": "Gabriel",
+  "lastName": "Okom",
+  "email": "ougabriel@gmail.com",
+  "phone": "+447555120605",
+  "phoneIntl": "+447555120605",
+  "address": {
+    "line1": "Athelney Street, Catford",
+    "city": "London",
+    "postcode": "SE6 3LE",
+    "country": "United Kingdom"
+  },
+  "nationality": "Nigerian",
+  "sector": "DevOps / Cloud / Platform Engineering",
+  "visa": {
+    "currentStatus": "Skilled Worker visa (KPMG sponsor, needs sponsor change)",
+    "authorisedToWorkUK": true,
+    "needsSponsorship": true,
+    "routeSought": "Skilled Worker visa (new sponsor)",
+    "inCountrySwitch": true,
+    "eligibleSOC": [
+      "2133 IT specialist managers",
+      "2134 IT project and programme managers",
+      "2136 Programmers and software development professionals",
+      "2137 Web design and development professionals"
+    ],
+    "statement": "I have current right to work in the UK on a Skilled Worker visa and will need sponsorship from a new employer to continue beyond my current Certificate of Sponsorship."
+  },
+  "cvLanes": {
+    "infra": "cv_infra.pdf - Infrastructure / Cloud Infrastructure Engineer",
+    "cloud": "cv_cloud.pdf - Senior Cloud / Azure Engineer",
+    "sre": "cv_sre.pdf - Site Reliability / Platform Engineer",
+    "devsecops": "cv_devsecops.pdf - DevSecOps / Cloud Security Engineer",
+    "mlops": "cv_mlops.pdf - MLOps / Machine Learning Platform Engineer",
+    "devops": "cv_devops.pdf - Senior DevOps Engineer",
+    "support": "cv_support.pdf - Senior IT Support / Cloud Support Engineer",
+    "grc": "cv_grc.pdf - GRC / IT Risk / IT Audit / Compliance / InfoSec governance"
+  },
+  "cvRouting": [
+    { "match": "(?i)GRC|governance|\\brisk\\b|compliance|audit|auditor|information security analyst|security compliance|security governance", "lane": "grc" },
+    { "match": "(?i)site reliability|\\bSRE\\b|reliability", "lane": "sre" },
+    { "match": "(?i)devsecops|security engineer|cloud security", "lane": "devsecops" },
+    { "match": "(?i)MLOps|data engineer|data platform|machine learning platform", "lane": "mlops" },
+    { "match": "(?i)cloud engineer|cloud architect", "lane": "cloud" },
+    { "match": "(?i)infrastructure|\\binfra\\b|platform", "lane": "infra" },
+    { "match": "(?i)support|service desk|IT operations|help ?desk", "lane": "support" },
+    { "match": "(?i)devops engineer|devops", "lane": "devops" },
+    { "match": "(?i).*", "lane": "devops" }
+  ],
+  "skillsTruth": {
+    "has": [
+      "Microsoft Azure (deep, multi-service cloud platform engineering)",
+      "AWS cloud services",
+      "Docker and Kubernetes container orchestration",
+      "Helm and ArgoCD for Kubernetes deployment and GitOps",
+      "Terraform and Ansible infrastructure as code",
+      "Azure DevOps, GitHub Actions and Jenkins CI/CD pipelines",
+      "Prometheus, Grafana, ELK and Azure Monitor observability",
+      "DevSecOps pipeline security (Trivy, SonarQube, Nexus)",
+      "Bash, Python and YAML scripting and automation",
+      "High-availability design, disaster recovery and migrations",
+      "ITIL-aligned incident management and operational support",
+      "9 years across cloud and on-premise environments"
+    ],
+    "trainingCertificates": [
+      "AZ-400 Designing and Implementing Microsoft DevOps Solutions",
+      "AZ-104 Microsoft Azure Administrator",
+      "AZ-204 Developing Solutions for Microsoft Azure",
+      "SC-200 Microsoft Security Operations Analyst",
+      "MSc Cyber Security"
+    ],
+    "doesNotYetHave": [
+      "CISA",
+      "CRISC",
+      "CISSP",
+      "Red Hat RHCE",
+      "Google Cloud Professional certification"
+    ],
+    "rule": "Claim only the AZ-400/AZ-104/AZ-204/SC-200 certifications and the MSc Cyber Security actually held. Never claim CISA/CRISC/CISSP or other certs not yet earned; skip roles that hard-require them."
+  },
+  "honesty": {
+    "rightToWork": "Currently authorised to work in the UK on a Skilled Worker visa. Needs sponsorship from a new employer to continue beyond the current Certificate of Sponsorship.",
+    "doNotFabricate": "Do not invent employers, dates, qualifications or achievements. Achievements are honest descriptions of real duties with honest scope, never invented metrics.",
+    "coverLetterRule": "Cover letters and free-text = fit for the role + genuine interest ONLY. No visa/sponsorship/CoS/salary/notice. (L13)",
+    "voiceRule": "Human voice. No em-dashes. No AI-tell words (leverage, delve, robust, seamless). Contractions and concrete specifics; sound like Gabriel, not a machine."
+  },
+  "cadence": {
+    "dailyTarget": 20,
+    "perCompany90Day": "One CV lane per company per 90 days; never two CVs to the same employer (L7).",
+    "preferDirectEmployers": "Prefer direct sponsoring employers over generic recruitment agencies."
+  },
+  "doNotApply": [
+    "Canonical",
+    "Roles that explicitly state no visa sponsorship or must already have unrestricted right to work",
+    "Generic recruitment agencies that are not the sponsoring employer",
+    "Roles that hard-require a certification not held (CISA, CRISC, CISSP)",
+    "Off-stack roles whose primary stack he does not work in"
+  ]
+}

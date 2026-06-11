@@ -9,6 +9,15 @@ print("Profiles found:", profiles.list_profiles())
 p = profiles.load_profile("racheal")
 print("Loaded profile:", p.candidate, "| lanes:", list(p.cvLanes))
 
+# Gabriel profile loads and routes title-first.
+g = profiles.load_profile("gabriel")
+print("Loaded profile:", g.candidate, "| lanes:", list(g.cvLanes))
+assert cv_router.route(g, "Senior DevOps Engineer", "reliability observability") == "devops", \
+    "title-first routing should keep DevOps title on the devops lane"
+assert cv_router.route(g, "Site Reliability Engineer", "") == "sre"
+assert cv_router.route(g, "IT Risk & Compliance Auditor", "") == "grc"
+print("Gabriel routing OK (devops/sre/grc).")
+
 print("Sponsor register loaded:", sponsor_match.register_loaded())
 for emp in ["Barchester Healthcare", "HC-One", "Totally Made Up Care Ltd XYZ"]:
     print(f"  is_sponsor({emp!r}) =", sponsor_match.is_sponsor(emp))
