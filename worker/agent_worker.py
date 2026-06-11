@@ -36,7 +36,7 @@ from app.services import (
     sponsor_match,
     tailoring,
 )
-from app.sourcing import coordinator
+from app.sourcing import coordinator, resolver
 
 
 @dataclass
@@ -146,22 +146,64 @@ def _evaluate(profile, cand: Candidate) -> dict:
 
 
 def fanout_sourcer(candidate: str, cursor: run_state.Cursor) -> list[Candidate]:
-    """Real sourcing: run the parallel fan-out, return ranked candidates.
+    """Real sourcing: run the parallel fan-out, resolve sponsor leads to real
+    vacancies, and return ranked applyable candidates.
 
-    The cursor is advanced by the sponsor-walk sourcer in place; persist it so
-    the next batch continues where this one stopped.
+    The cursor is advanced by the sponsor-walk sourcer in place; persist it so the
+    next batch continues where this one stopped.
     """
     profile = profiles_svc.load_profile(candidate)
     sourcers = coordinator.default_sourcers(candidate, fetch_json=coordinator.http_fetch_json)
     ranked = coordinator.run_fanout(candidate, profile, cursor, sourcers)
     run_state.save_cursor(candidate, cursor)
-    # Map SourcedCandidate -> the worker's Candidate. Leads with no resolved URL
-    # (sponsor-walk careers pages) are handed through for the agent to resolve.
-    return [
-        Candidate(company=c.company, title=c.title, url=c.url, ats=c.ats,
-                  description=c.description)
-        for c in ranked
-    ]
+
+    applyable: list[Candidate] = []
+    resolved_count = 0
+    leads_seen = 0
+    companies_added: set[str] = set()
+
+    def _company_key(name: str) -> str:
+        import re as _re
+        return _re.sub(r"[^a-z0-9]", "", name.lower())
+
+    for c in ranked:
+        if _is_lead(c):
+            # A sponsor lead with no live role yet: resolve its ATS board.
+            leads_seen += 1
+            if leads_seen > MAX_LEADS_TO_RESOLVE:
+                continue
+            real = resolver.resolve_company(profile, c.company, coordinator.http_fetch_json)
+            # L7: at most ONE role per company per batch (best-fit first).
+            real.sort(key=lambda r: r.fit_score, reverse=True)
+            for r in real:
+                key = _company_key(r.company)
+                if key in companies_added:
+                    continue
+                companies_added.add(key)
+                resolved_count += 1
+                applyable.append(Candidate(company=r.company, title=r.title, url=r.url,
+                                           ats=r.ats, description=r.description))
+                break  # one role from this company is enough
+        else:
+            key = _company_key(c.company)
+            if key in companies_added:
+                continue
+            companies_added.add(key)
+            applyable.append(Candidate(company=c.company, title=c.title, url=c.url,
+                                        ats=c.ats, description=c.description))
+
+    if resolved_count:
+        event_log.emit(candidate, event_log.KIND_SOURCE,
+                       f"Resolved {resolved_count} live vacancy(ies) from sponsor leads.")
+    return applyable
+
+
+def _is_lead(c) -> bool:
+    return (not c.url) or "careers page to resolve" in (c.title or "").lower()
+
+
+# Cap how many sponsor leads we probe per fire (each probe is several HTTP calls).
+MAX_LEADS_TO_RESOLVE = 25
 
 
 # --------------------------------------------------------------------------- #
@@ -186,11 +228,77 @@ def demo_submitter(candidate: str, plan: dict) -> Outcome:
                    confirmation_url=f"https://example.com/confirmation/{plan['company']}")
 
 
+def make_playwright_submitter(cv_dir: str):
+    """Build a real submitter that drives a logged-in browser per the ATS adapter.
+
+    Opens ONE persistent browser session and reuses it for every submission in the
+    batch (serial, single-session per the WAT). Routes each plan through the
+    dispatcher: supported ATS -> adapter; captcha ATS -> auto-skip; else NeedsUserAction.
+    """
+    import os
+    from contextlib import ExitStack
+
+    from app.submit import browser, dispatcher
+    from app.submit.base import SubmitPlan
+
+    stack = ExitStack()
+    page_holder: dict = {}
+
+    def _page():
+        if "page" not in page_holder:
+            page_holder["page"] = stack.enter_context(browser.browser_session())
+        return page_holder["page"]
+
+    def submit(candidate: str, plan: dict) -> Outcome:
+        ats = plan.get("ats")
+        # Auto-skip blocked ATSes without opening the browser at all.
+        if dispatcher.is_auto_skip(ats):
+            return Outcome(status="Skipped-blocked",
+                           note=f"{ats} is captcha/anti-bot blocked; auto-skipped per WAT.")
+
+        profile = profiles_svc.load_profile(candidate)
+        cv_file = plan.get("cv_file") or ""
+        cv_path = os.path.join(cv_dir, cv_file) if cv_file else ""
+        if cv_file and not os.path.exists(cv_path):
+            return Outcome(status="NeedsUserAction",
+                           note=f"Routed CV not found on disk: {cv_path}")
+
+        sub_plan = SubmitPlan(
+            profile=profile, company=plan["company"], title=plan["title"],
+            url=plan["url"], lane=plan["lane"], cv_path=cv_path,
+            letter=plan["letter"], ats=ats,
+        )
+        result = dispatcher.submit(sub_plan, page=_page() if dispatcher.is_supported(ats) else None)
+        return Outcome(status=result.status.value,
+                       confirmation_url=result.confirmation_url, note=result.note)
+
+    submit.close = stack.close  # caller closes the browser at batch end
+    return submit
+
+
 if __name__ == "__main__":
     import sys
 
     db.init_db()
     who = sys.argv[1] if len(sys.argv) > 1 else "racheal"
-    print(f"Running one demo batch for '{who}'...")
-    result = run_batch(who, demo_sourcer, demo_submitter)
+    mode = sys.argv[2] if len(sys.argv) > 2 else "demo"
+
+    if mode == "live":
+        # Real fan-out sourcing + real Playwright submission (logged-in browser).
+        cv_dir = sys.argv[3] if len(sys.argv) > 3 else "."
+        submitter = make_playwright_submitter(cv_dir)
+        print(f"Running LIVE batch for '{who}' (cv_dir={cv_dir})...")
+        try:
+            result = run_batch(who, fanout_sourcer, submitter)
+        finally:
+            if hasattr(submitter, "close"):
+                submitter.close()
+    elif mode == "fanout":
+        # Real fan-out sourcing, but demo submitter (no browser) - safe dry run.
+        print(f"Running fan-out DRY RUN for '{who}' (demo submitter)...")
+        result = run_batch(who, fanout_sourcer, demo_submitter)
+    else:
+        print(f"Running DEMO batch for '{who}' (stub sourcer + submitter)...")
+        result = run_batch(who, demo_sourcer, demo_submitter)
+
     print("Batch disposition:", result)

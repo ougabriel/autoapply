@@ -57,6 +57,37 @@ jobapply-AI/
 └── data/                    # sqlite db, sponsor register (gitignored)
 ```
 
+### Careers-page resolver + Greenhouse submitter (BUILT)
+- `app/sourcing/resolver.py`: turns sponsor-walk LEADS (company name only) into
+  real applyable vacancies by deterministically probing public Greenhouse/Workable
+  boards with token guesses (slug of company name). Guards: token must be >=5 chars
+  (short slugs collide), resolved vacancies deduped by URL, and a name-similarity
+  guard requires the board's company name to share a distinctive token with the lead.
+  Only ever returns vacancies the ATS actually returned - never fabricates.
+  KNOWN LIMIT: token-guessing can still hit a real-but-unrelated tenant; this is a
+  COARSE deterministic pass - the agent/human verifies in the browser before submit.
+- `app/submit/`: ATS submission adapters (WAT Stage 4).
+  - `base.py`: SubmitPlan, SubmitResult, AnswerPolicy (truthful structured-field
+    answers for RTW/sponsorship - never prose, per L13).
+  - `greenhouse.py`: GreenhouseSubmitter implementing fill_greenhouse_standard
+    (native value-setter + input/change/blur, react-select open+click, LOCAL Attach
+    upload, submit, confirmation detection, submit-then-fix aria-invalid gotcha).
+    Written against a small Page protocol so it's unit-testable with a fake page.
+  - `browser.py`: persistent logged-in Edge session (launch_persistent_context),
+    headed by default for 2FA/captcha; single-session (serial submission).
+  - `dispatcher.py`: routes plan->adapter; AUTO-SKIPS captcha ATSes
+    (Lever/Ashby/iCIMS/SmartRecruiters/...) honestly; unknown->NeedsUserAction.
+- Worker wiring (`worker/agent_worker.py`):
+  - `fanout_sourcer` resolves leads + collapses to ONE role per company per batch (L7).
+  - `make_playwright_submitter(cv_dir)` opens one browser session/batch, routes via
+    dispatcher, maps routed CV lane -> cv file on disk.
+  - CLI: `python -m worker.agent_worker <candidate> [demo|fanout|live] [cv_dir]`.
+    demo=stubs, fanout=real sourcing+resolver+demo submit (dry run), live=real browser.
+- Tests: `test_submit.py` (token guesses, resolver match, Greenhouse submit via fake
+  page, dispatcher auto-skip). All suites green: orchestrator/fanout/submit/smoke.
+- Verified: fanout dry run resolved real Greenhouse/Workable boards from sponsor
+  leads, drained serially, halted at daily cap, integrity gate blocked an em-dash.
+
 ### Sourcing fan-out (BUILT - WAT Stage 6c)
 Parallel in finding, serial in submitting. Package `app/sourcing/`:
 - `base.py`: SourcedCandidate, triage (applies WAT gates during sourcing:
