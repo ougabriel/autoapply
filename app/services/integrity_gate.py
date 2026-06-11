@@ -44,6 +44,14 @@ EM_DASH_PATTERN = re.compile(r"[\u2014\u2013]")
 # Looks like a fabricated metric (advisory only).
 METRIC_PATTERN = re.compile(r"\b\d{1,3}(?:[.,]\d+)?\s?%|\b\d{2,}\+?\b")
 
+# Generic words that appear in honest prose and must NOT, on their own, trigger a
+# "claiming a qualification you lack" warning (avoids false positives like the
+# word "health" in "Health and Social Care").
+QUAL_GENERIC_TOKENS = {
+    "health", "social", "care", "and", "the", "level", "in", "of", "or",
+    "own", "uk", "clinical", "diploma",
+}
+
 
 @dataclass
 class GateResult:
@@ -79,14 +87,17 @@ def check_text(text: str, profile: Profile, *, is_prose: bool = True) -> GateRes
         if word in low:
             violations.append(f"AI-tell phrase detected: '{word}'.")
 
-    # (a) claims of qualifications the candidate does NOT have
+    # (a) claims of qualifications the candidate does NOT have.
+    # Only DISTINCTIVE tokens trigger a flag - generic words like "health",
+    # "social" or "care" appear in honest prose constantly and would otherwise
+    # cause noisy false positives.
     for missing in profile.skillsTruth.doesNotYetHave:
-        # Use the leading noun phrase as the claim signal (e.g. "NVQ", "driving licence").
         signal = _normalize(missing).split("(")[0].strip()
-        # Build a few robust signals from the phrase.
-        tokens = [t for t in re.split(r"[\s/]+", signal) if len(t) > 2]
-        # If a distinctive token from the missing-qual appears, flag it.
-        for tok in tokens[:3]:
+        tokens = [
+            t for t in re.split(r"[\s/]+", signal)
+            if len(t) > 2 and t not in QUAL_GENERIC_TOKENS
+        ]
+        for tok in tokens[:4]:
             if re.search(rf"\b{re.escape(tok)}\b", low):
                 warnings.append(
                     f"Possible claim of a qualification in doesNotYetHave "
