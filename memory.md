@@ -57,6 +57,26 @@ jobapply-AI/
 └── data/                    # sqlite db, sponsor register (gitignored)
 ```
 
+### FIX: Live mode hung on "running" with nothing submitted (root causes found)
+Symptom: click Start (live), status stuck "running", no submissions, no feedback.
+Root causes + fixes:
+1. `page.url()` called as a method - Playwright exposes `url` as a PROPERTY (str).
+   This threw 'str' object is not callable inside the browser path, freezing the
+   batch silently. Fixed via _current_url() (tolerates property or method).
+2. No per-submission error isolation - a throwing/hanging submitter froze the whole
+   batch and never released the lock. run_batch now wraps submit in try/except ->
+   records NeedsUserAction + emits an error event, batch continues.
+3. Browser-launch failure (e.g. profile lock) now returns NeedsUserAction with a
+   clear message instead of hanging; browser opened lazily only for supported ATS.
+4. Lead resolution was network-bound and ran before ANY submission, so the user saw
+   minutes of "running" with no events. Now: (a) direct-board candidates with live
+   URLs are submitted FIRST, (b) lead resolution emits per-lead progress events,
+   (c) MAX_LEADS_TO_RESOLVE 25->8, (d) http_fetch_json timeout 15s->6s, (e) resolve
+   errors are caught per-lead so a dead host can't stall the batch.
+Verified: live batch drove a real browser to Monzo Greenhouse, filled fields, hit
+submit, honestly reported NeedsUserAction (custom react-select questions unfilled),
+finished cleanly to idle. No more hang. All test suites green.
+
 ### Model activation + go-live wiring (BUILT)
 "Activating the model" = configuring an LLM API key; the loop then uses the model
 to write letters, else falls back to the deterministic template. EITHER WAY output

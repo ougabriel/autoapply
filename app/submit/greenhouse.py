@@ -43,13 +43,16 @@ _FIND_INVALID = """
 
 
 class Page(Protocol):
-    """Subset of the Playwright sync Page API the adapter uses."""
+    """Subset of the Playwright sync Page API the adapter uses.
+
+    Note: Playwright exposes `url` as a PROPERTY (str), not a method. The adapter
+    accesses it via _current_url() which tolerates both for testability.
+    """
     def goto(self, url: str) -> object: ...
     def evaluate(self, expression: str, arg: object = None) -> object: ...
     def query_selector(self, selector: str) -> object | None: ...
     def click(self, selector: str, timeout: float = ...) -> None: ...
     def set_input_files(self, selector: str, files: str) -> None: ...
-    def url(self) -> str: ...
     def wait_for_timeout(self, ms: float) -> None: ...
 
 
@@ -86,8 +89,13 @@ class GreenhouseSubmitter:
                 return True
         return False
 
+    def _current_url(self) -> str:
+        """Playwright exposes `url` as a property; a fake page may use a method."""
+        u = self.page.url
+        return u() if callable(u) else u
+
     def _looks_confirmed(self) -> bool:
-        url = self.page.url()
+        url = self._current_url()
         if "/confirmation" in url or "post-apply" in url:
             return True
         body = self.page.query_selector('text=Thank you for applying')
@@ -118,7 +126,7 @@ class GreenhouseSubmitter:
         self.page.wait_for_timeout(400)
 
         if self._looks_confirmed():
-            return SubmitResult(SubmitStatus.SUBMITTED, confirmation_url=self.page.url(),
+            return SubmitResult(SubmitStatus.SUBMITTED, confirmation_url=self._current_url(),
                                 note="Greenhouse confirmation detected." +
                                      ("" if attached else " (resume input not found)"))
 
@@ -129,7 +137,7 @@ class GreenhouseSubmitter:
             self.page.click('button[type="submit"]')
             self.page.wait_for_timeout(400)
             if self._looks_confirmed():
-                return SubmitResult(SubmitStatus.SUBMITTED, confirmation_url=self.page.url(),
+                return SubmitResult(SubmitStatus.SUBMITTED, confirmation_url=self._current_url(),
                                     note=f"Submitted after resolving {len(invalid)} flagged field(s).")
             return SubmitResult(SubmitStatus.NEEDS_USER_ACTION,
                                 note=f"Still blocked on fields: {', '.join(str(i) for i in invalid)[:120]}")

@@ -98,7 +98,7 @@ def http_fetch_json(url: str):
     """Default real HTTP fetcher (httpx). Imported lazily so tests can stay offline."""
     import httpx
 
-    with httpx.Client(timeout=15.0, follow_redirects=True,
+    with httpx.Client(timeout=6.0, follow_redirects=True,
                       headers={"User-Agent": "jobapply-AI/1.0"}) as client:
         resp = client.get(url)
         resp.raise_for_status()

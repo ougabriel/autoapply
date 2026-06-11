@@ -99,7 +99,15 @@ def run_batch(candidate: str, sourcer: Sourcer, submitter: Submitter,
                 continue
 
             # Hand the ready plan to the submitter (the real browser work).
-            outcome = submitter(candidate, plan)
+            # Isolated: a submitter that throws must NOT freeze the whole batch -
+            # record it honestly and move on (the user always sees what happened).
+            try:
+                outcome = submitter(candidate, plan)
+            except Exception as exc:  # noqa: BLE001
+                event_log.emit(candidate, event_log.KIND_ERROR,
+                               f"Submit failed for {cand.company}: {exc}")
+                outcome = Outcome(status="NeedsUserAction",
+                                  note=f"Submitter error: {exc}")
             orchestrator.record_outcome(
                 candidate, status=outcome.status, company=cand.company, title=cand.title,
                 lane=plan["lane"], ats=cand.ats,
@@ -166,31 +174,48 @@ def fanout_sourcer(candidate: str, cursor: run_state.Cursor) -> list[Candidate]:
         import re as _re
         return _re.sub(r"[^a-z0-9]", "", name.lower())
 
+    # Pass 1: candidates that ALREADY have a real URL (direct boards, LinkedIn).
+    # These need no resolution, so the batch can start submitting immediately.
+    leads: list = []
     for c in ranked:
         if _is_lead(c):
-            # A sponsor lead with no live role yet: resolve its ATS board.
-            leads_seen += 1
-            if leads_seen > MAX_LEADS_TO_RESOLVE:
-                continue
+            leads.append(c)
+            continue
+        key = _company_key(c.company)
+        if key in companies_added:
+            continue
+        companies_added.add(key)
+        applyable.append(Candidate(company=c.company, title=c.title, url=c.url,
+                                    ats=c.ats, description=c.description))
+
+    if applyable:
+        event_log.emit(candidate, event_log.KIND_SOURCE,
+                       f"{len(applyable)} ready vacancy(ies) with live URLs (no resolution needed).")
+
+    # Pass 2: resolve a bounded number of sponsor leads, emitting progress so the
+    # user always sees activity (this is the slow, network-bound part).
+    for c in leads:
+        if leads_seen >= MAX_LEADS_TO_RESOLVE:
+            break
+        leads_seen += 1
+        event_log.emit(candidate, event_log.KIND_SOURCE,
+                       f"Resolving sponsor lead {leads_seen}/{min(len(leads), MAX_LEADS_TO_RESOLVE)}: {c.company}")
+        try:
             real = resolver.resolve_company(profile, c.company, coordinator.http_fetch_json)
-            # L7: at most ONE role per company per batch (best-fit first).
-            real.sort(key=lambda r: r.fit_score, reverse=True)
-            for r in real:
-                key = _company_key(r.company)
-                if key in companies_added:
-                    continue
-                companies_added.add(key)
-                resolved_count += 1
-                applyable.append(Candidate(company=r.company, title=r.title, url=r.url,
-                                           ats=r.ats, description=r.description))
-                break  # one role from this company is enough
-        else:
-            key = _company_key(c.company)
+        except Exception as exc:  # noqa: BLE001 - a slow/dead host must not stall the batch
+            event_log.emit(candidate, event_log.KIND_SOURCE,
+                           f"Lead {c.company} skipped (resolve error: {str(exc)[:60]}).")
+            continue
+        real.sort(key=lambda r: r.fit_score, reverse=True)
+        for r in real:
+            key = _company_key(r.company)
             if key in companies_added:
                 continue
             companies_added.add(key)
-            applyable.append(Candidate(company=c.company, title=c.title, url=c.url,
-                                        ats=c.ats, description=c.description))
+            resolved_count += 1
+            applyable.append(Candidate(company=r.company, title=r.title, url=r.url,
+                                       ats=r.ats, description=r.description))
+            break  # one role from this company is enough
 
     if resolved_count:
         event_log.emit(candidate, event_log.KIND_SOURCE,
@@ -203,7 +228,9 @@ def _is_lead(c) -> bool:
 
 
 # Cap how many sponsor leads we probe per fire (each probe is several HTTP calls).
-MAX_LEADS_TO_RESOLVE = 25
+# Kept small so a fire stays responsive; direct-board candidates (already resolved)
+# are submitted first regardless of this cap.
+MAX_LEADS_TO_RESOLVE = 8
 
 
 # --------------------------------------------------------------------------- #
@@ -268,7 +295,26 @@ def make_playwright_submitter(cv_dir: str):
             url=plan["url"], lane=plan["lane"], cv_path=cv_path,
             letter=plan["letter"], ats=ats,
         )
-        result = dispatcher.submit(sub_plan, page=_page() if dispatcher.is_supported(ats) else None)
+
+        # Only supported ATSes drive the browser; others never open it.
+        if not dispatcher.is_supported(ats):
+            result = dispatcher.submit(sub_plan, page=None)
+            return Outcome(status=result.status.value,
+                           confirmation_url=result.confirmation_url, note=result.note)
+
+        # Open the browser lazily, with a clear error if it cannot launch (e.g. the
+        # real Edge is already running and locking the profile). This prevents the
+        # batch from freezing on "running" with no feedback.
+        try:
+            page = _page()
+        except Exception as exc:  # noqa: BLE001
+            return Outcome(
+                status="NeedsUserAction",
+                note=("Could not open the logged-in browser: " + str(exc)[:160] +
+                      " | Close any open Edge windows using this profile, then retry."),
+            )
+
+        result = dispatcher.submit(sub_plan, page=page)
         return Outcome(status=result.status.value,
                        confirmation_url=result.confirmation_url, note=result.note)
 
