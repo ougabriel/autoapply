@@ -52,7 +52,7 @@ class StartIn(BaseModel):
     candidate: str
     source: str = "manual-start"
     mode: str = "demo"  # demo | dryrun | live
-    cv_dir: str = "."
+    cv_dir: str | None = None
 
 
 @router.post("/start")

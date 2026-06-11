@@ -25,6 +25,39 @@
   </header>
 
   <main>
+    <section class="panel" id="setup-panel">
+      <h2>Setup &amp; activation</h2>
+      <p class="panel-note">Activate the model and get the loop ready for Live mode. The app works without a model too (honest template letters).</p>
+
+      <div class="setup-block">
+        <h3>Model</h3>
+        <div class="setup-row">
+          <select id="llm-provider">
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="openai">OpenAI (GPT)</option>
+          </select>
+          <input id="llm-key" type="password" placeholder="API key (stored locally, never committed)" />
+          <button id="btn-activate" class="primary">Activate</button>
+          <button id="btn-test-llm" class="ghost">Test</button>
+        </div>
+        <p class="setup-state" id="llm-state"></p>
+      </div>
+
+      <div class="setup-block">
+        <h3>Logged-in browser</h3>
+        <div class="setup-row">
+          <input id="login-url" type="text" value="https://www.linkedin.com/login" />
+          <button id="btn-login" class="ghost">Open sign-in window</button>
+        </div>
+        <p class="setup-state" id="browser-state"></p>
+      </div>
+
+      <div class="setup-block">
+        <h3>Readiness</h3>
+        <ul class="readiness" id="readiness"></ul>
+      </div>
+    </section>
+
     <section class="panel" id="status-panel">
       <h2>Loop status</h2>
       <div class="status-grid">

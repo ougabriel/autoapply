@@ -47,7 +47,93 @@ function selectCandidate(name) {
   $("feed").innerHTML = "";
   refreshStatus();
   loadTracker();
+  loadReadiness();
   openStream();
+}
+
+// ---- setup / activation ----
+async function loadSetup() {
+  try {
+    const s = await api("/api/setup/status");
+    $("llm-provider").value = s.llm.llm_provider;
+    $("llm-state").textContent = s.llm.active
+      ? `Active: ${s.llm.llm_provider} / ${s.llm.llm_model} (key ${s.llm.active_key_preview})`
+      : "Not activated. Letters use the honest template until you add a key.";
+    $("browser-state").textContent = s.browser_profile_exists
+      ? `Browser profile ready at ${s.browser_profile_dir}`
+      : "No browser profile yet. Open the sign-in window once to create it.";
+  } catch (err) {
+    $("llm-state").textContent = "Failed to load setup: " + err.message;
+  }
+}
+
+async function loadReadiness() {
+  if (!candidate) return;
+  try {
+    const r = await api(`/api/setup/readiness/${encodeURIComponent(candidate)}`);
+    const ul = $("readiness");
+    ul.innerHTML = "";
+    const items = [
+      ["Model activated", r.checks.llm_active],
+      ["Sponsor register loaded", r.checks.sponsor_register_loaded],
+      ["Logged-in browser ready", r.checks.browser_profile_exists],
+      ["Routed CVs present", r.checks.cvs_present],
+    ];
+    items.forEach(([label, ok]) => {
+      const li = document.createElement("li");
+      li.className = ok ? "ready-ok" : "ready-no";
+      li.textContent = (ok ? "ready  " : "todo  ") + label;
+      ul.appendChild(li);
+    });
+    r.notes.forEach((n) => {
+      const li = document.createElement("li");
+      li.className = "ready-note";
+      li.textContent = n;
+      ul.appendChild(li);
+    });
+  } catch (_) {}
+}
+
+async function activateLLM() {
+  const provider = $("llm-provider").value;
+  const api_key = $("llm-key").value.trim();
+  $("llm-state").textContent = "Activating...";
+  try {
+    const r = await post("/api/setup/llm", { provider, api_key: api_key || null });
+    $("llm-key").value = "";
+    $("llm-state").textContent = r.llm.active
+      ? `Active: ${r.llm.llm_provider} / ${r.llm.llm_model} (key ${r.llm.active_key_preview})`
+      : "Saved, but no key detected yet.";
+    loadReadiness();
+  } catch (err) {
+    $("llm-state").textContent = "Error: " + err.message;
+  }
+}
+
+async function testLLM() {
+  $("llm-state").textContent = "Testing the model...";
+  try {
+    const r = await post("/api/setup/llm/test", {});
+    $("llm-state").textContent = r.ok
+      ? `Model OK (${r.model}). Sample: ${r.sample}`
+      : `Test failed: ${r.reason}`;
+  } catch (err) {
+    $("llm-state").textContent = "Error: " + err.message;
+  }
+}
+
+async function openLogin() {
+  const url = $("login-url").value.trim();
+  $("browser-state").textContent = "Opening sign-in window...";
+  try {
+    const r = await post("/api/setup/browser/login", { url });
+    $("browser-state").textContent = r.opened
+      ? r.note
+      : `Not opened: ${r.reason}`;
+    setTimeout(() => { loadSetup(); loadReadiness(); }, 4000);
+  } catch (err) {
+    $("browser-state").textContent = "Error: " + err.message;
+  }
 }
 
 const SEAL_STATE = {
@@ -188,8 +274,12 @@ $("candidate").addEventListener("change", (e) => selectCandidate(e.target.value)
 $("btn-start").addEventListener("click", () => control("start"));
 $("btn-pause").addEventListener("click", () => control("pause"));
 $("btn-resume").addEventListener("click", () => control("resume"));
-$("btn-refresh").addEventListener("click", () => { refreshStatus(); loadTracker(); });
+$("btn-refresh").addEventListener("click", () => { refreshStatus(); loadTracker(); loadReadiness(); });
+$("btn-activate").addEventListener("click", activateLLM);
+$("btn-test-llm").addEventListener("click", testLLM);
+$("btn-login").addEventListener("click", openLogin);
 
+loadSetup();
 loadProfiles().catch((err) => {
   $("status-readout").textContent = "Failed to load: " + err.message;
 });

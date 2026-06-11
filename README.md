@@ -38,10 +38,33 @@ python -m playwright install msedge
 # 3. copy your sponsor register in (gitignored, kept local)
 Copy-Item "C:\Users\ougab\Downloads\GAB-Bespoke Lab\uk_sponsors.csv" .\data\uk_sponsors.csv
 
-# 4. run the local app
+# 4. put your CV PDFs in cv/ (one per lane: cv_<lane>.pdf)
+#    e.g. cv_hca.pdf, cv_care_assistant.pdf ... or cv_devops.pdf, cv_sre.pdf ...
+
+# 5. run the local app
 python -m app.main
 # then open http://127.0.0.1:8765
 ```
+
+## Activating the model + going live
+
+The app works with NO model (honest template letters). To activate AI tailoring
+and run Live submissions, use the Setup panel in the UI (or the API):
+
+1. **Activate the model.** Setup panel -> Model -> pick Anthropic or OpenAI, paste
+   your API key, click Activate (stored in `secrets.local.json`, gitignored). Click
+   Test to confirm the model is reachable and its output passes the integrity gate.
+   You can also just set `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` in the environment.
+2. **Sign in once.** Setup panel -> Logged-in browser -> Open sign-in window, log in
+   to LinkedIn / NHS Jobs in the window that opens. The session persists for submissions.
+3. **CVs present.** Drop `cv_<lane>.pdf` files in `cv/`. Readiness turns green.
+4. **Run.** Pick a mode and Start:
+   - Demo: stub sourcing + submit (no browser) - proves the loop.
+   - Dry run: real fan-out sourcing + resolver, no submit - see what it would apply to.
+   - Live: real Playwright submission in your logged-in browser.
+
+Whether the letter comes from the model or the template, it ALWAYS passes the
+integrity gate before anything is submitted.
 
 ## Honesty rules (non-negotiable - this is the strategy)
 

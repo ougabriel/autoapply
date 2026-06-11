@@ -28,10 +28,13 @@ def is_running(candidate: str) -> bool:
     return t is not None and t.is_alive()
 
 
-def start(candidate: str, mode: str = "demo", cv_dir: str = ".") -> dict:
+def start(candidate: str, mode: str = "demo", cv_dir: str | None = None) -> dict:
     """Launch a batch in the background. Returns immediately."""
     if is_running(candidate):
         return {"started": False, "reason": "batch-thread-already-running"}
+
+    from .. import config
+    cv_dir = cv_dir or str(config.CV_DIR)
 
     # Import here to avoid a heavy import at app startup.
     from worker import agent_worker

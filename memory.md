@@ -57,6 +57,27 @@ jobapply-AI/
 └── data/                    # sqlite db, sponsor register (gitignored)
 ```
 
+### Model activation + go-live wiring (BUILT)
+"Activating the model" = configuring an LLM API key; the loop then uses the model
+to write letters, else falls back to the deterministic template. EITHER WAY output
+passes the integrity gate (LLM path retries on gate failure, then falls back).
+- `services/secrets.py`: local gitignored secrets store (API key + ATS password);
+  env fallback ANTHROPIC_API_KEY/OPENAI_API_KEY; returns only masked previews.
+- `services/llm.py`: provider wrapper (Anthropic default / OpenAI), honest system
+  prompt built from skillsTruth has/doesNotYetHave; generate_letter retries with
+  gate-violation feedback, returns None (->template) when no key / SDK / on failure.
+- `services/tailoring.py`: build_letter now prefers LLM when active, falls back to
+  template; TailoredApplication.source = "llm" | "template".
+- `routers/setup.py`: /api/setup/status, /llm (configure), /llm/test, /secret,
+  /browser/login (opens persistent Edge for one-time LinkedIn/NHS sign-in),
+  /cv/<candidate>, /readiness/<candidate> (live_ready gate + notes).
+- config: SECRETS_FILE, CV_DIR (cv/), BROWSER_PROFILE_DIR (persistent Edge profile).
+- UI: Setup panel - activate model (provider+key+Test), open sign-in window,
+  readiness checklist. Start modes demo|dryrun|live use config.CV_DIR.
+- CVs copied into cv/ for both candidates; readiness cvs_present=true.
+- requirements: anthropic, openai added. All test suites green (template fallback).
+- Remaining for full Live: user does one-time browser sign-in; optional API key.
+
 ### FIX: Start button now actually runs a batch (was: only set the lock)
 Problem: clicking Start only called orchestrator.start_batch (acquired the lock,
 returned) so the UI showed "running" but nothing drained it - the worker was a
