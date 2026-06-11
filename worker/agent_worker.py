@@ -36,6 +36,7 @@ from app.services import (
     sponsor_match,
     tailoring,
 )
+from app.sourcing import coordinator
 
 
 @dataclass
@@ -144,9 +145,28 @@ def _evaluate(profile, cand: Candidate) -> dict:
     }
 
 
+def fanout_sourcer(candidate: str, cursor: run_state.Cursor) -> list[Candidate]:
+    """Real sourcing: run the parallel fan-out, return ranked candidates.
+
+    The cursor is advanced by the sponsor-walk sourcer in place; persist it so
+    the next batch continues where this one stopped.
+    """
+    profile = profiles_svc.load_profile(candidate)
+    sourcers = coordinator.default_sourcers(candidate, fetch_json=coordinator.http_fetch_json)
+    ranked = coordinator.run_fanout(candidate, profile, cursor, sourcers)
+    run_state.save_cursor(candidate, cursor)
+    # Map SourcedCandidate -> the worker's Candidate. Leads with no resolved URL
+    # (sponsor-walk careers pages) are handed through for the agent to resolve.
+    return [
+        Candidate(company=c.company, title=c.title, url=c.url, ats=c.ats,
+                  description=c.description)
+        for c in ranked
+    ]
+
+
 # --------------------------------------------------------------------------- #
-# A demo sourcer + submitter so the loop is runnable without a live browser.
-# Replace these with the real LinkedIn/board sourcer and Playwright submitter.
+# Demo sourcer + submitter so the loop is runnable without network or a browser.
+# Replace demo_submitter with the real Playwright fill_* submitter.
 # --------------------------------------------------------------------------- #
 def demo_sourcer(candidate: str, cursor: run_state.Cursor) -> list[Candidate]:
     return [

@@ -124,6 +124,57 @@ def worker_should_continue(candidate: str) -> dict:
     return {"continue": ok, "reason": reason}
 
 
+@router.get("/sourcing/preview")
+def sourcing_preview(candidate: str, limit: int = 25) -> dict:
+    """Run the fan-out and return the ranked candidate list WITHOUT submitting.
+
+    Lets the user (or agent) see what this fire would work through. The cursor is
+    advanced and persisted, matching what a real batch start would do.
+    """
+    profile = _profile_or_404(candidate)
+    from ..sourcing import coordinator
+
+    cursor = run_state.load_cursor(candidate)
+    sourcers = coordinator.default_sourcers(candidate, fetch_json=coordinator.http_fetch_json)
+    ranked = coordinator.run_fanout(candidate, profile, cursor, sourcers)
+    run_state.save_cursor(candidate, cursor)
+    return {
+        "count": len(ranked),
+        "candidates": [
+            {
+                "company": c.company, "title": c.title, "url": c.url, "ats": c.ats,
+                "source": c.source, "lane": c.lane, "fit_score": c.fit_score,
+                "sponsor_matched": c.sponsor_matched, "reason": c.reason,
+            }
+            for c in ranked[:limit]
+        ],
+    }
+
+
+class LinkedInFindsIn(BaseModel):
+    candidate: str
+    finds: list[dict]  # [{company,title,url,ats,description}]
+
+
+@router.post("/sourcing/linkedin")
+def sourcing_provide_linkedin(body: LinkedInFindsIn) -> dict:
+    """Agent worker hands LinkedIn EA finds it triaged in the logged-in browser."""
+    _profile_or_404(body.candidate)
+    from ..sourcing import linkedin_agent
+    from ..sourcing.base import SourcedCandidate
+
+    finds = [
+        SourcedCandidate(
+            company=f.get("company", ""), title=f.get("title", ""),
+            url=f.get("url", ""), ats=f.get("ats", "LinkedIn"),
+            source="linkedin_ea", description=f.get("description", ""),
+        )
+        for f in body.finds
+    ]
+    pending = linkedin_agent.provide(body.candidate, finds)
+    return {"received": len(finds), "pending": pending}
+
+
 class EvaluateIn(BaseModel):
     candidate: str
     company: str

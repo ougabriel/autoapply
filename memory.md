@@ -57,6 +57,30 @@ jobapply-AI/
 └── data/                    # sqlite db, sponsor register (gitignored)
 ```
 
+### Sourcing fan-out (BUILT - WAT Stage 6c)
+Parallel in finding, serial in submitting. Package `app/sourcing/`:
+- `base.py`: SourcedCandidate, triage (applies WAT gates during sourcing:
+  recruiter ban, sponsor match, filters, dedup), title-dominant fit scoring (0-10).
+- `direct_boards.py`: deterministic concurrent HTTP against PUBLIC Greenhouse
+  (`boards-api.greenhouse.io`) + Workable (`apply.workable.com/api/v1/widget`)
+  job-board APIs, by curated sponsor token per sector. fetch_json injected for offline tests.
+- `sponsor_walk.py`: deterministic walk of uk_sponsors.csv from cursor.last_sponsor_row
+  (200-row budget/fire), sector-keyword filtered; emits sponsor LEADS (careers page
+  to resolve) - never fabricates a vacancy title it cannot know.
+- `linkedin_agent.py`: agent-hook (NOT a scraper - LinkedIn ToS). The LLM worker
+  triages EA cards in the logged-in browser and posts finds via /api/runs/sourcing/linkedin;
+  this sourcer drains + triages them through the same gates.
+- `coordinator.py`: runs sourcers concurrently (threads, I/O bound), merges, dedupes
+  cross-source on (company, role-family) keeping higher fit, ranks. Isolated failures.
+  `default_sourcers()` factory + `http_fetch_json()` real fetcher.
+- Wired into `worker/agent_worker.py` (`fanout_sourcer`) and exposed via
+  `/api/runs/sourcing/preview` (ranked list, no submit) + `/api/runs/sourcing/linkedin`.
+- Tests: `test_fanout.py` (offline, injected HTTP: parallel/triage/dedup/rank/cursor).
+- Verified live: Gabriel fan-out pulled 60 real Monzo Greenhouse roles; off-stack
+  titles (Software Engineer) correctly cap at 2.5 vs lane matches.
+- Known nuance: ambiguous words can trip regex routing (e.g. "Credit Risk Manager"
+  hits the GRC `\brisk\b` rule). Coarse deterministic pass; LLM agent triage refines.
+
 ### Autonomy model (DECIDED: Option B - agent-orchestrated)
 The WAT (esp. Stage 6b/6c/7) describes a stateful, scheduled, queue-and-continue
 autonomous loop where an LLM agent + Playwright is the BRAIN at runtime, not coded
