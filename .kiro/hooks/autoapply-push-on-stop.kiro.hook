@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Auto-push to autoapply",
+  "description": "After each agent session, commit any changes and push to the autoapply repo on main.",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "git add -A && git diff --cached --quiet || (git commit -m \"auto: sync work to autoapply\" && git push autoapply main)",
+    "timeout": 120
+  }
+}

@@ -62,6 +62,15 @@ jobapply-AI/
 - Adapter interface per ATS; honest status per application: Submitted / Skipped-blocked / NeedsUserAction.
 - Captcha-blocked ATSes (Lever/Ashby/iCIMS/SmartRecruiters/bespoke) → auto-skip, never park for a human.
 
+### Git / remote (IMPORTANT)
+- This folder is its OWN git repo (`git init` here), independent of the parent
+  `C:/Users/ougab` repo it is nested inside. Do not commit into the parent.
+- Remote: `autoapply` -> https://github.com/ougabriel/autoapply.git, branch `main`.
+- **Every work session and change must be committed and pushed to `autoapply main`.**
+- `git push` prints to stderr; PowerShell shows it as a red "error" but the push
+  succeeds. Verify with `git status -sb` (look for `## main...autoapply/main`).
+- Venv (`.venv/`), `data/` (db + sponsor register), and secrets are gitignored.
+
 ### Stack & skills available
 Local app: Python 3.11+, FastAPI, SQLite, Pydantic, Playwright. UI: plain HTML/JS at localhost.
 Installed Kiro skills relevant here: backend-developer, api-designer, fullstack-developer,
