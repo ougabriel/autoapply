@@ -88,9 +88,16 @@ def score_fit(profile: Profile, title: str, description: str, sponsor_matched: b
         # Off-target title: cap hard so it never out-ranks a real lane match.
         return round(min(2.5, hits * 0.4), 1)
 
-    overlap = min(6.0, hits * 1.2)
-    sponsor_bonus = 2.0 if sponsor_matched else 0.0
-    title_bonus = 2.0
+    # Sponsorship only matters when the profile needs it. For non-sponsored /
+    # global candidates, judge purely on role fit so nothing is mis-ranked.
+    if profile.visa.needsSponsorship:
+        overlap = min(6.0, hits * 1.2)
+        sponsor_bonus = 2.0 if sponsor_matched else 0.0
+        title_bonus = 2.0
+    else:
+        overlap = min(8.0, hits * 1.6)
+        sponsor_bonus = 0.0
+        title_bonus = 2.0
     return round(min(10.0, overlap + sponsor_bonus + title_bonus), 1)
 
 

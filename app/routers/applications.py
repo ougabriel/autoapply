@@ -45,3 +45,26 @@ def list_applications(candidate: str) -> dict:
     for a in apps:
         counts[a["status"]] = counts.get(a["status"], 0) + 1
     return {"applications": apps, "counts": counts}
+
+
+class StatusUpdateIn(BaseModel):
+    application_id: int
+    status: ApplicationStatus
+    note: str | None = None
+
+
+@router.patch("/status")
+def update_status(body: StatusUpdateIn) -> dict:
+    """Record a real outcome on an application (callback, interview, offer, rejection).
+
+    This is the feedback loop: marking Interview/Offer here is what lets the
+    analytics learn which sources and CV lanes actually produce results.
+    """
+    ok = db.update_application_status(body.application_id, body.status.value, body.note)
+    return {"updated": ok, "application_id": body.application_id, "status": body.status.value}
+
+
+@router.get("/analytics")
+def analytics(candidate: str) -> dict:
+    """Outcome funnel + callback rates by source and CV lane. Measures real value."""
+    return db.outcome_analytics(candidate)

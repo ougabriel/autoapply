@@ -1,5 +1,42 @@
 # Project Memory
 
+## NORTH STAR (product vision - confirmed by user 2026-06-20)
+Autonomously apply to jobs, for MULTIPLE profiles, across GLOBAL roles,
+SPONSORED OR NOT, with BROAD platform coverage AND smart targeting + the right
+channels + outcome tracking. Success = real results (callbacks/interviews), not
+raw submission counts. Breadth (reach) and quality (ranking/targeting) are both
+required, not a trade-off: cast a wide net, fish it intelligently, learn from outcomes.
+
+### Foundations built toward this (2026-06-20)
+- **Sponsorship is now OPTIONAL** (works globally, sponsored or not):
+  - `filters.passes_sponsorship(profile, desc)`: only skips "no sponsorship" JDs
+    when `profile.visa.needsSponsorship` is True; otherwise a no-op.
+  - `sourcing.base.score_fit`: sponsor bonus only applied when needsSponsorship;
+    non-sponsored candidates judged purely on role fit (no mis-ranking).
+- **Outcome tracking (the feedback loop / "real value" measure):**
+  - `db.update_application_status(id, status, note)` - mark Interview/Offer/Rejected.
+  - `db.outcome_analytics(candidate)` - funnel + callback rates BY SOURCE and BY LANE
+    (joins applications->jobs to attribute callbacks to the channel that produced them).
+  - Endpoints: `PATCH /api/applications/status`, `GET /api/applications/analytics`.
+- All suites green; sponsorship-optional + analytics verified.
+
+### Remaining for the north star (priority order)
+1. Platform coverage: deepen Greenhouse adapter (react-selects, custom questions,
+   location typeahead) so real forms COMPLETE; then Workable, Lever, NHS-TRAC, LinkedIn EA.
+2. Right channels per profile/sector (NHS-TRAC for care; curated sponsor/board lists for tech).
+3. Skip lead-resolution for off-sector companies (stop wasting time on irrelevant sponsor rows).
+4. OS scheduler tick (Task Scheduler) for true unattended autonomy.
+5. Surface analytics in the UI; feed callback-rate back into source/lane ranking.
+
+### KNOWN REALITY CHECKS (honest)
+- Submitter is mostly the demo stub; only Greenhouse adapter is real and it's basic
+  (fails Monzo-style custom forms -> NeedsUserAction). This is the #1 gap to real submissions.
+- Local Ollama installed + working but TOO SLOW on this CPU-only machine (no GPU);
+  AI letters only viable via the agent path (Kiro in-session) or a paid cloud key.
+  Template is the unattended fallback.
+- Background server processes started via tooling don't persist between turns; the
+  user must run `python -m app.main` in their OWN terminal for the page to stay up.
+
 ## Product: jobapply-AI (local-first job application assistant)
 
 ### What this is

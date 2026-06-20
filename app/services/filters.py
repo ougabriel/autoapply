@@ -26,9 +26,17 @@ class FilterDecision:
     reason: str = ""
 
 
-def passes_sponsorship(description: str) -> FilterDecision:
+def passes_sponsorship(profile: Profile, description: str) -> FilterDecision:
+    """Sponsorship gate - only applies when the PROFILE actually needs sponsorship.
+
+    This is what makes the app work globally, sponsored or not:
+      - Candidate needs sponsorship -> skip JDs that explicitly refuse it.
+      - Candidate does NOT need sponsorship -> this gate is a no-op (apply anywhere).
+    """
+    if not profile.visa.needsSponsorship:
+        return FilterDecision(True, "Sponsorship not required by this profile.")
     if _NO_SPONSORSHIP.search(description or ""):
-        return FilterDecision(False, "JD explicitly states no sponsorship.")
+        return FilterDecision(False, "JD explicitly states no sponsorship (profile needs it).")
     return FilterDecision(True)
 
 
@@ -78,7 +86,7 @@ def passes_dedup(profile: Profile, company: str) -> FilterDecision:
 def evaluate(profile: Profile, company: str, title: str, description: str) -> FilterDecision:
     """Run all Stage 2 filters in order; first failure wins."""
     for check in (
-        passes_sponsorship(description),
+        passes_sponsorship(profile, description),
         passes_do_not_apply(profile, title, description),
         passes_qualification_gate(profile, description),
         passes_dedup(profile, company),

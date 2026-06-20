@@ -163,3 +163,67 @@ def recent_company_applications(candidate: str, company: str, since_iso: str) ->
             (candidate, company, since_iso),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def update_application_status(application_id: int, status: str, note: str | None = None) -> bool:
+    """Update an application's outcome (e.g. Interview/Offer/Rejected). The feedback loop."""
+    with connect() as conn:
+        if note is not None:
+            cur = conn.execute(
+                "UPDATE applications SET status=?, note=? WHERE id=?",
+                (status, note, application_id),
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE applications SET status=? WHERE id=?", (status, application_id)
+            )
+        return cur.rowcount > 0
+
+
+def outcome_analytics(candidate: str) -> dict:
+    """Outcome funnel + per-source/per-lane callback rates. Measures REAL value.
+
+    Callback = any application that reached Interview or Offer. We join back to the
+    jobs table to attribute callbacks to the source that produced them, so the loop
+    can learn which channels actually generate interviews (not just submissions).
+    """
+    with connect() as conn:
+        apps = [dict(r) for r in conn.execute(
+            """
+            SELECT a.*, j.source AS source
+            FROM applications a LEFT JOIN jobs j ON a.job_id = j.id
+            WHERE a.candidate=?
+            """, (candidate,),
+        ).fetchall()]
+
+    submitted_states = {"Submitted", "Interview", "Offer", "Rejected"}
+    callback_states = {"Interview", "Offer"}
+
+    def _rate(rows: list[dict]) -> dict:
+        submitted = [r for r in rows if r["status"] in submitted_states]
+        callbacks = [r for r in rows if r["status"] in callback_states]
+        n_sub = len(submitted)
+        n_cb = len(callbacks)
+        return {
+            "submitted": n_sub,
+            "callbacks": n_cb,
+            "callback_rate": round(n_cb / n_sub, 3) if n_sub else 0.0,
+        }
+
+    funnel = {s: 0 for s in
+              ("Submitted", "Skipped-blocked", "NeedsUserAction", "Interview", "Offer", "Rejected")}
+    for a in apps:
+        funnel[a["status"]] = funnel.get(a["status"], 0) + 1
+
+    by_source: dict[str, list[dict]] = {}
+    by_lane: dict[str, list[dict]] = {}
+    for a in apps:
+        by_source.setdefault(a.get("source") or "unknown", []).append(a)
+        by_lane.setdefault(a.get("lane") or "unknown", []).append(a)
+
+    return {
+        "funnel": funnel,
+        "overall": _rate(apps),
+        "by_source": {k: _rate(v) for k, v in by_source.items()},
+        "by_lane": {k: _rate(v) for k, v in by_lane.items()},
+    }
