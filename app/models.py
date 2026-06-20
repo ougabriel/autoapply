@@ -74,6 +74,9 @@ class Profile(BaseModel):
     honesty: Honesty = Field(default_factory=Honesty)
     cadence: Cadence = Field(default_factory=Cadence)
     doNotApply: list[str] = Field(default_factory=list)
+    # Targeting (global, multi-channel). Empty = use sector defaults.
+    channels: list[str] = Field(default_factory=list)
+    locations: list[str] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- #

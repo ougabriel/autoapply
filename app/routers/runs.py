@@ -143,7 +143,7 @@ def sourcing_preview(candidate: str, limit: int = 25) -> dict:
     from ..sourcing import coordinator
 
     cursor = run_state.load_cursor(candidate)
-    sourcers = coordinator.default_sourcers(candidate, fetch_json=coordinator.http_fetch_json)
+    sourcers = coordinator.default_sourcers(candidate, profile=profile, fetch_json=coordinator.http_fetch_json)
     ranked = coordinator.run_fanout(candidate, profile, cursor, sourcers)
     run_state.save_cursor(candidate, cursor)
     return {

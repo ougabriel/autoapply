@@ -263,11 +263,76 @@ async function loadTracker() {
   data.applications.slice(0, 50).forEach((a) => {
     const tr = document.createElement("tr");
     const when = (a.created_at || "").slice(0, 10);
+    const canMark = ["Submitted", "Interview", "Offer", "Rejected"].includes(a.status);
+    const outcome = canMark
+      ? `<button class="mini" data-id="${a.id}" data-st="Interview">Interview</button>` +
+        `<button class="mini" data-id="${a.id}" data-st="Offer">Offer</button>` +
+        `<button class="mini ghost" data-id="${a.id}" data-st="Rejected">Rejected</button>`
+      : "";
     tr.innerHTML =
       `<td>${escapeHtml(a.company)}</td><td>${escapeHtml(a.title)}</td><td>${a.lane}</td>` +
-      `<td><span class="status-tag status-${a.status}">${a.status}</span></td><td>${when}</td>`;
+      `<td><span class="status-tag status-${a.status}">${a.status}</span></td><td>${when}</td>` +
+      `<td class="outcome-cell">${outcome}</td>`;
     body.appendChild(tr);
   });
+  body.querySelectorAll("button.mini").forEach((b) => {
+    b.addEventListener("click", () => markOutcome(Number(b.dataset.id), b.dataset.st));
+  });
+
+  loadAnalytics();
+}
+
+async function markOutcome(applicationId, status) {
+  try {
+    await api("/api/applications/status", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ application_id: applicationId, status }),
+    });
+    loadTracker();
+  } catch (err) {
+    /* ignore */
+  }
+}
+
+async function loadAnalytics() {
+  if (!candidate) return;
+  try {
+    const a = await api(`/api/applications/analytics?candidate=${encodeURIComponent(candidate)}`);
+    const funnel = $("funnel");
+    funnel.innerHTML = "";
+    Object.entries(a.funnel).forEach(([k, n]) => {
+      if (!n) return;
+      const pill = document.createElement("span");
+      pill.className = "count-pill";
+      pill.innerHTML = `${k}: <b>${n}</b>`;
+      funnel.appendChild(pill);
+    });
+    const ovr = a.overall;
+    const o = document.createElement("span");
+    o.className = "count-pill";
+    o.innerHTML = `Callback rate: <b>${Math.round((ovr.callback_rate || 0) * 100)}%</b> (${ovr.callbacks}/${ovr.submitted})`;
+    funnel.appendChild(o);
+
+    renderRates("by-source", a.by_source);
+    renderRates("by-lane", a.by_lane);
+  } catch (_) {}
+}
+
+function renderRates(id, obj) {
+  const ul = $(id);
+  ul.innerHTML = "";
+  Object.entries(obj)
+    .sort((x, y) => y[1].callback_rate - x[1].callback_rate)
+    .forEach(([key, v]) => {
+      const li = document.createElement("li");
+      li.innerHTML =
+        `<span class="rate-key">${escapeHtml(key)}</span>` +
+        `<span class="rate-val">${Math.round((v.callback_rate || 0) * 100)}% ` +
+        `<span class="rate-sub">(${v.callbacks}/${v.submitted})</span></span>`;
+      ul.appendChild(li);
+    });
+  if (!Object.keys(obj).length) ul.innerHTML = '<li class="rate-empty">No data yet</li>';
 }
 
 async function control(action) {

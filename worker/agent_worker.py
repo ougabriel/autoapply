@@ -161,8 +161,11 @@ def fanout_sourcer(candidate: str, cursor: run_state.Cursor) -> list[Candidate]:
     next batch continues where this one stopped.
     """
     profile = profiles_svc.load_profile(candidate)
-    sourcers = coordinator.default_sourcers(candidate, fetch_json=coordinator.http_fetch_json)
-    ranked = coordinator.run_fanout(candidate, profile, cursor, sourcers)
+    sourcers = coordinator.default_sourcers(candidate, profile=profile, fetch_json=coordinator.http_fetch_json)
+    # Learned ranking: boost sources that have historically produced callbacks.
+    analytics = db.outcome_analytics(candidate)
+    outcome_boost = {src: v.get("callback_rate", 0.0) for src, v in analytics.get("by_source", {}).items()}
+    ranked = coordinator.run_fanout(candidate, profile, cursor, sourcers, outcome_boost=outcome_boost)
     run_state.save_cursor(candidate, cursor)
 
     applyable: list[Candidate] = []
@@ -192,14 +195,21 @@ def fanout_sourcer(candidate: str, cursor: run_state.Cursor) -> list[Candidate]:
         event_log.emit(candidate, event_log.KIND_SOURCE,
                        f"{len(applyable)} ready vacancy(ies) with live URLs (no resolution needed).")
 
-    # Pass 2: resolve a bounded number of sponsor leads, emitting progress so the
-    # user always sees activity (this is the slow, network-bound part).
+    # Pass 2: resolve sponsor leads ONLY to top up to the per-batch target. If the
+    # ready (live-URL) candidates already meet the target, skip resolution entirely
+    # so we never waste time probing irrelevant sponsor rows.
+    target = max(1, profile.cadence.dailyTarget)
+    budget = min(MAX_LEADS_TO_RESOLVE, max(0, target - len(applyable)))
+    if budget == 0 and leads:
+        event_log.emit(candidate, event_log.KIND_SOURCE,
+                       f"Skipping {len(leads)} sponsor lead(s): already have "
+                       f"{len(applyable)} ready vacancy(ies) (>= target {target}).")
     for c in leads:
-        if leads_seen >= MAX_LEADS_TO_RESOLVE:
+        if leads_seen >= budget:
             break
         leads_seen += 1
         event_log.emit(candidate, event_log.KIND_SOURCE,
-                       f"Resolving sponsor lead {leads_seen}/{min(len(leads), MAX_LEADS_TO_RESOLVE)}: {c.company}")
+                       f"Resolving sponsor lead {leads_seen}/{budget}: {c.company}")
         try:
             real = resolver.resolve_company(profile, c.company, coordinator.http_fetch_json)
         except Exception as exc:  # noqa: BLE001 - a slow/dead host must not stall the batch

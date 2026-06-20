@@ -21,12 +21,26 @@ required, not a trade-off: cast a wide net, fish it intelligently, learn from ou
 - All suites green; sponsorship-optional + analytics verified.
 
 ### Remaining for the north star (priority order)
-1. Platform coverage: deepen Greenhouse adapter (react-selects, custom questions,
-   location typeahead) so real forms COMPLETE; then Workable, Lever, NHS-TRAC, LinkedIn EA.
-2. Right channels per profile/sector (NHS-TRAC for care; curated sponsor/board lists for tech).
-3. Skip lead-resolution for off-sector companies (stop wasting time on irrelevant sponsor rows).
-4. OS scheduler tick (Task Scheduler) for true unattended autonomy.
-5. Surface analytics in the UI; feed callback-rate back into source/lane ranking.
+ALL FIVE BUILT 2026-06-20 (see "North star delivered" below).
+
+### North star delivered (2026-06-20)
+1. **Greenhouse adapter deepened** (`submit/greenhouse.py`): enumerates application
+   questions and answers them - sponsorship/RTW honestly from profile, how-heard->LinkedIn,
+   location typeahead, demographics->decline, consent checkboxes; submit-then-fix loop.
+2. **Channel targeting per profile** (`coordinator.default_sourcers(profile=...)`):
+   care -> [nhs_trac, sponsor_walk, linkedin]; tech -> [direct_boards, linkedin, sponsor_walk].
+   Profile.channels overrides. New `sourcing/nhs_trac.py` agent-hook (care's biggest pool).
+   Profile model gained `channels` + `locations`.
+3. **Smart lead resolution** (`worker.fanout_sourcer`): skips sponsor-lead resolution
+   entirely when ready (live-URL) candidates already meet the daily target; otherwise
+   resolves only enough to top up. No more wasting 28s on irrelevant rows.
+4. **OS scheduler** (`scripts/auto_loop_tick.ps1` + install/uninstall): hourly Task
+   Scheduler tick calls the local app's /api/runs/start per candidate. Needs server running.
+5. **Outcome feedback in UI + ranking**: dashboard analytics panel (funnel + callback
+   rate by source & lane), Interview/Offer/Rejected buttons on tracker rows
+   (PATCH /status). `coordinator.run_fanout(outcome_boost=...)` nudges ranking by
+   historical callback rate; worker computes it from db.outcome_analytics.
+   Verified: marking Cygnet/mh_support as Interview -> lane callback rate 20%.
 
 ### KNOWN REALITY CHECKS (honest)
 - Submitter is mostly the demo stub; only Greenhouse adapter is real and it's basic

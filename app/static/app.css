@@ -290,3 +290,19 @@ table.tracker td { padding: 10px 12px; border-bottom: 1px solid rgba(200, 184, 1
 .ready-ok { background: rgba(96,108,56,0.15); color: var(--moss); }
 .ready-no { background: rgba(192,142,58,0.16); color: #8A6420; }
 .ready-note { background: var(--sand); color: var(--ink-soft); font-size: 13px; }
+
+/* ---- analytics panel ---- */
+#analytics-panel { grid-column: 1 / -1; }
+.analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 16px; }
+.analytics-grid h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 16px; margin: 0 0 10px; }
+.rate-list { list-style: none; margin: 0; padding: 0; }
+.rate-list li { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 12px; border-radius: 10px; margin-bottom: 6px; background: rgba(139,157,131,0.12); font-size: 14px; }
+.rate-key { color: var(--ink); }
+.rate-val { font-family: 'Fraunces', Georgia, serif; font-weight: 600; color: var(--moss); }
+.rate-sub { color: var(--ink-soft); font-weight: 400; font-size: 12px; }
+.rate-empty { background: var(--sand); color: var(--ink-soft); justify-content: flex-start; }
+.outcome-cell { white-space: nowrap; }
+button.mini { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px; margin-right: 4px; background: rgba(96,108,56,0.15); color: var(--moss); border: none; }
+button.mini.ghost { background: transparent; color: var(--ink-soft); }
+button.mini:hover { background: rgba(96,108,56,0.3); }
+@media (max-width: 980px) { .analytics-grid { grid-template-columns: 1fr; } }

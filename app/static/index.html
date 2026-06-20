@@ -102,10 +102,26 @@
       <h2>Application tracker</h2>
       <table class="tracker">
         <thead>
-          <tr><th>Company</th><th>Title</th><th>Lane</th><th>Status</th><th>When</th></tr>
+          <tr><th>Company</th><th>Title</th><th>Lane</th><th>Status</th><th>When</th><th>Outcome</th></tr>
         </thead>
         <tbody id="tracker-body"></tbody>
       </table>
+    </section>
+
+    <section class="panel" id="analytics-panel">
+      <h2>Outcomes &amp; what's working</h2>
+      <p class="panel-note">Real value is callbacks, not submissions. Mark interviews/offers on the tracker; rates feed back into source ranking.</p>
+      <div class="counts" id="funnel"></div>
+      <div class="analytics-grid">
+        <div>
+          <h3>Callback rate by source</h3>
+          <ul class="rate-list" id="by-source"></ul>
+        </div>
+        <div>
+          <h3>Callback rate by CV lane</h3>
+          <ul class="rate-list" id="by-lane"></ul>
+        </div>
+      </div>
     </section>
   </main>
 
